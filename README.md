@@ -10,10 +10,15 @@
 | --- | --- | --- | --- |
 | community-common | 公共:统一响应、异常、MyBatis-Plus、Redis 等 | com.measure.community.common | - |
 | community-gateway | API 网关、统一鉴权、路由 | com.measure.community.gateway | 9090 |
-| community-auth | 用户/鉴权(JWT) | com.measure.community.auth | 9093 |
-| community-info | 信息服务(人房业态,样板模块) | com.measure.community.info | 9094 |
+| community-auth | 系统配置:用户/角色/权限/日志、鉴权(JWT) | com.measure.community.auth | 9093 |
+| community-info | 信息服务(人房业态,**样板模块**,连真实 MySQL) | com.measure.community.info | 9094 |
+| community-portal | 首页(数据账本/待办/图表,**空壳**) | com.measure.community.portal | 9095 |
+| community-service | 社区服务(康养/助幼/上门,**空壳**) | com.measure.community.service | 9096 |
+| community-welfare | 社区公益(资助/助农/法援,**空壳**) | com.measure.community.welfare | 9097 |
+| community-affairs | 居务管理(活动/工单/随手拍/场地/工具/资讯,**空壳**) | com.measure.community.affairs | 9098 |
 
-> AI 智能体(FastAPI)为独立技术栈、独立仓库,经网关/内部 REST 对接,不在本工程。
+> 范围以 `开发计划7.13(1).xlsx`「阶段1」为准(docx 作补充),**不含三级驾驶舱**。空壳模块含 `/api/v1/{域}/ping` 占位,业务按 community-info 样板逐个填。
+> 移动端(Taro/RN 前端)、AI 智能体(FastAPI)为独立工程,不在本仓库。
 
 ## 环境准备
 JDK 17+、Maven 3.8+、Nacos 2.x(必须)、MySQL 8、Redis。
