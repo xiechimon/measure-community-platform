@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: 系统配置 / 鉴权 API (community-auth)
+  version: v1
+  description: 数智化社区服务平台 - 系统配置(用户/角色/权限/日志)与登录鉴权。契约骨架。
+servers:
+  - url: http://localhost:9090
+    description: 经网关访问
+tags:
+  - name: 鉴权
+paths:
+  /community-auth/user/login:
+    post:
+      tags: [鉴权]
+      summary: 登录(免鉴权白名单)
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account, password]
+              properties:
+                account: { type: string, example: admin }
+                password: { type: string, example: "123456" }
+      responses:
+        '200':
+          description: 登录成功,data 含 token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: integer, format: int64 }
+                      account: { type: string }
+                      name: { type: string }
+                      token: { type: string }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

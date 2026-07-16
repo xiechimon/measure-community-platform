@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: 社区公益 API (community-welfare)
+  version: v1
+  description: 数智化社区服务平台 - 社区公益。契约骨架,业务接口随开发计划补齐。
+servers:
+  - url: http://localhost:9090
+    description: 经网关访问
+security:
+  - bearerAuth: []
+tags:
+  - name: 社区公益
+paths:
+  /api/v1/welfare/ping:
+    get:
+      tags: [社区公益]
+      summary: 健康探针
+      operationId: ping
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: string, example: community-welfare ok }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
