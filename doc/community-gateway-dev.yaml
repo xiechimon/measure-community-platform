@@ -1,4 +1,6 @@
 # 导入 Nacos 后作为 community-gateway 的路由配置。
+server:
+  port: 9090
 spring:
   cloud:
     gateway:
