@@ -24,6 +24,8 @@
 
 技术底座沿用脚手架,不变:Spring Boot 3.3.5 / Spring Cloud 2023.0.1 / Spring Cloud Alibaba 2023.0.1 / JDK 17 / Nacos / Sentinel / Seata / RocketMQ / MyBatis-Plus 3.5.8 / dynamic-datasource / JWT / Redis。
 
+> ⚠️ 消息队列/分布式事务差异:说明书 3.2 用 **RabbitMQ/Kafka**,且未提及 RocketMQ 与 Seata;脚手架自带 RocketMQ + Seata。本次不实现 MQ 与分布式事务(YAGNI,§9),故不阻断;待后续真正落地异步/事务时,须按说明书改用 RabbitMQ/Kafka 并评估是否引入 Seata,同时替换 `doc/rocketmq-common.yaml`、`doc/seata-common.yaml`。
+
 ## 3. 工程结构
 
 ```
@@ -54,7 +56,7 @@ ideaProject/
   - `t_population_his`(人口变更历史):追加式,记录每次版本变更。
   - 随工程附 `database/mysql/01-init-schema.sql` 建表脚本。
 - **落地 2 个样板接口**(其余 10 个接口留作后续按此模式扩展):
-  - `GET /api/v1/population/persons` — MyBatis-Plus 分页查询(type/keyword/page)。
+  - `GET /api/v1/population/persons` — MyBatis-Plus 分页查询。说明书 4.1.2 的 `keyword` 因证件号已加密(密文无法 LIKE)拆为:`type` 等值 + `name` 模糊 + `idCard` 经 HMAC 盲索引等值精确匹配。
   - `POST /api/v1/population/persons` — 录入,证件号唯一性校验。
 - **敏感字段**:按说明书第 5 章,证件号落库为 AES 密文(MyBatis TypeHandler 占位),另存一列 HMAC 盲索引(blind index)承担唯一约束与等值精确查询;本次 AES/HMAC 均为直通占位,不展开真实密钥/加解密体系(后续接 KMS)。
 - 分层:`controller / service / service.impl / mapper / model(entity·req·vo)`,沿用 `cloud-user` 分层风格。

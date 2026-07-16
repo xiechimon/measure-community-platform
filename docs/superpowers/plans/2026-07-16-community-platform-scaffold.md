@@ -133,6 +133,7 @@ Expected: 一条提交记录。
 - Rename: `cloud-common`→`community-common`、`cloud-gateway`→`community-gateway`、`cloud-user`→`community-auth`(含内部 java 包目录)
 - Modify: 全部 `pom.xml`、`application.yml`、`*.java`(包名/类名/字符串)、主类与测试类文件名
 - Modify: `community-gateway/.../filter/AuthFilter.java`(白名单字符串)
+- Modify: `Jenkinsfile`(模块 case/端口/镜像名/仓库地址;删除 producer/consumer)
 
 **Interfaces:**
 - Consumes: Task 1 的 3 模块工程。
@@ -252,16 +253,35 @@ grep -rn 'cloud-gateway\|cloud-user' --include=*.yml . | head
 ```
 Expected: 无输出。
 
+- [ ] **Step 6b: 更新 Jenkinsfile(模块名/端口/镜像/仓库地址)**
+
+Jenkinsfile 里硬编码了 demo 模块的 case、端口、镜像名与仓库地址,sed 覆盖不到,须单独改。
+先做字符串替换,再手工修 case 块:
+```bash
+cd "//wsl.localhost/Ubuntu/home/measure/ideaProject/measure-community-platform"
+sed -i -e 's/cloud-gateway/community-gateway/g' \
+       -e 's/cloud-user/community-auth/g' \
+       -e 's/spring-cloud-alibaba-base-demo/measure-community-platform/g' Jenkinsfile
+```
+然后把 Jenkinsfile 中的模块 `case` 块(原 cloud-consumer/gateway/producer/user 四项)整段替换为(删除 producer/consumer,新增 community-info):
+```groovy
+        case 'community-gateway': config.containerName = 'community-gateway'; config.containerPort = '9090'; config.imageName = 'community-gateway'; break
+        case 'community-auth':    config.containerName = 'community-auth';    config.containerPort = '9093'; config.imageName = 'community-auth'; break
+        case 'community-info':    config.containerName = 'community-info';    config.containerPort = '9094'; config.imageName = 'community-info'; break
+```
+并把 `GITHUB_REPO` 改为你的真实新仓库地址(占位:`git@github.com:<org>/measure-community-platform.git`)。
+
 - [ ] **Step 7: 编译验证 + 残留扫描**
 
 Run:
 ```bash
 cd "//wsl.localhost/Ubuntu/home/measure/ideaProject/measure-community-platform"
 mvn -q -DskipTests package 2>&1 | tail -5
-echo "--- 残留检查(应全空) ---"
-grep -rn 'com\.xf' --include=*.java --include=*.xml . | head
+echo "--- 残留检查(应全空;-I 跳过二进制,排除 .git/target) ---"
+grep -rnI 'com\.xf\|cloud-common\|cloud-gateway\|cloud-user\|cloud-producer\|cloud-consumer\|base-demo' . \
+  --exclude-dir=.git --exclude-dir=target | head
 ```
-Expected: `BUILD SUCCESS`,reactor 模块显示为 community-common/community-gateway/community-auth;残留检查无输出。
+Expected: `BUILD SUCCESS`,reactor 模块显示为 community-common/community-gateway/community-auth;残留检查无输出(含 Jenkinsfile)。
 
 - [ ] **Step 8: 提交**
 
@@ -922,7 +942,9 @@ Expected: 提交成功。
 ```markdown
 # 数智化社区服务平台(measure-community-platform)
 
-面向区/街镇/社区三级治理 + 居民 + 物业的一体化微服务平台。基于 Spring Cloud Alibaba(Nacos/Sentinel/Seata/RocketMQ)。
+面向区/街镇/社区三级治理 + 居民 + 物业的一体化微服务平台。基于 Spring Cloud Alibaba(Nacos/Sentinel + 脚手架自带 Seata/RocketMQ)。
+
+> 注:设计说明书 3.2 消息队列用 RabbitMQ/Kafka(未含 RocketMQ/Seata)。本骨架暂沿用脚手架自带的 RocketMQ/Seata 且不实现 MQ/分布式事务;后续落地时按说明书对齐。
 
 ## 模块
 
