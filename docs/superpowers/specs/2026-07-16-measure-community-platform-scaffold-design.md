@@ -47,14 +47,20 @@ ideaProject/
  └ measure-community-platform/         新工程(全新 git init)
     ├ pom.xml                          父 POM,com.measure / measure-community-platform / pom
     ├ community-common/                com.measure.community.common   (由 cloud-common 改)
-    ├ community-gateway/               com.measure.community.gateway  (由 cloud-gateway 改)
-    ├ community-auth/                  com.measure.community.auth     (由 cloud-user 改,保留 JWT)
-    ├ community-info/                  com.measure.community.info     (样板业务模块,连真实 MySQL,可跑)
-    ├ doc/                             Nacos 待导入配置(沿用并改名)
+    ├ community-gateway/               com.measure.community.gateway  (由 cloud-gateway 改,9090)
+    ├ community-auth/                  com.measure.community.auth     (系统配置域,由 cloud-user 改,9093)
+    ├ community-info/                  com.measure.community.info     (信息服务,样板,连真实 MySQL,9094)
+    ├ community-portal/                com.measure.community.portal   (首页,空壳,9095)
+    ├ community-service/               com.measure.community.service  (社区服务,空壳,9096)
+    ├ community-welfare/               com.measure.community.welfare  (社区公益,空壳,9097)
+    ├ community-affairs/               com.measure.community.affairs  (居务管理,空壳,9098)
+    ├ doc/                             Nacos 待导入配置(共/redis/seata + 各模块 -dev.yaml + 网关路由)
     ├ database/mysql/01-init-schema.sql  样板建表脚本
-    ├ Dockerfile / Jenkinsfile         沿用并改名
-    └ README.md                        改写为本项目说明(含"如何新增业务模块")
+    ├ Dockerfile / Jenkinsfile         沿用并改名(含各模块 case/端口)
+    └ README.md                        项目说明(含"如何新增业务模块")
 ```
+
+空壳模块 = pom + 主类 + `application.yml`(Nacos)+ `application-local.yml`(数据源)+ `/api/v1/{域}/ping` 占位控制器 + 父 POM 注册 + 网关路由;暂无实体/DB 表,业务按 community-info 样板逐个填。
 
 - **删除** demo 模块 `cloud-producer`、`cloud-consumer`,并从父 POM `<modules>` 移除。
 - 每个业务模块主类保留 `@SpringBootApplication + @EnableDiscoveryClient + @ComponentScan(basePackages={"com.measure.community.common","com.measure.community.<模块>"})`。
@@ -107,7 +113,22 @@ Python/FastAPI 智能体为独立技术栈,单独建仓库,经网关 / 内部 RE
 
 ## 9. 不做的事(YAGNI)
 
-- 不实现 info 之外的业务模块(service/mall/workorder/health/security/activity/payment/system/cockpit)。
+- 一期各域已建**空壳**(portal/service/welfare/affairs),但**不实现其业务逻辑**(实体/接口),仅 `/ping` 占位;业务按 community-info 样板后续填。
+- **不做三级驾驶舱**(xlsx 明确排除);不做移动端前端(Taro/RN);不做一期外的域(时间银行/商城/健康档案/安防/支付等)。
 - 不实现完整 AES 加密/脱敏、权限矩阵、Seata 事务样例、RocketMQ 业务样例(依赖已保留,按需再加)。
-- 不含 AI/FastAPI 代码。
+- 不含 AI/FastAPI 代码(独立仓)。
 - 不改动原 `spring-cloud-alibaba-base-demo` 目录。
+
+## 10. 实施状态(2026-07-16)
+
+**骨架已完成。** 8 个模块:
+
+| 模块 | 交付 | 验证级别 |
+|---|---|---|
+| community-common / gateway / auth | 改名保留 | 编译✅;gateway 端到端✅ |
+| community-info | 信息服务样板(t_population + 盲索引,GET/POST) | **端到端✅**(真实 Docker:Nacos+MySQL+Redis,增查/判重跑通) |
+| community-portal / service / welfare / affairs | 空壳(ping) | 编译✅(未逐个真启动;结构与已验证的 info 同构) |
+
+- 全部 8 模块 `mvn -DskipTests package` 通过;community-info 控制器单测 2/2 通过。
+- 端到端验证顺带修复 2 个配置问题:common-config 补 `server.addr`;网关 dev 配 `server.port: 9090`。
+- 环境:构建须在 **WSL 内**用原生路径(Windows Maven 对 `\\wsl.localhost` 路径有 bug);Maven 用阿里云镜像、Docker 用 daocloud 镜像(境外仓不通)。
