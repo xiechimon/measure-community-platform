@@ -1,0 +1,12 @@
+# 构建产物
+target/
+build/
+HELP.md
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+# 日志
+*.log
