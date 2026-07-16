@@ -1,0 +1,115 @@
+openapi: 3.0.3
+info:
+  title: 信息服务 API (community-info)
+  version: v1
+  description: 数智化社区服务平台 - 信息服务(人房业态)。契约先行,唯一事实来源。
+servers:
+  - url: http://localhost:9090
+    description: 经网关访问
+security:
+  - bearerAuth: []
+tags:
+  - name: 人口信息
+    description: 户籍/常住/流动人口档案
+paths:
+  /api/v1/population/persons:
+    get:
+      tags: [人口信息]
+      summary: 人口信息分页查询
+      operationId: listPersons
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string, enum: [户籍, 常住, 流动] }
+        - name: name
+          in: query
+          schema: { type: string }
+        - name: idCard
+          in: query
+          schema: { type: string }
+        - name: pageNo
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string, example: 请求成功 }
+                  data: { $ref: '#/components/schemas/PopulationPage' }
+        '403':
+          description: 无数据权限
+    post:
+      tags: [人口信息]
+      summary: 人口信息录入
+      operationId: createPerson
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PopulationCreateReq' }
+      responses:
+        '200':
+          description: 录入成功,data 为人口档案ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: integer, format: int64, description: 人口档案ID }
+        '400':
+          description: 证件号为空
+        '500':
+          description: 证件号已存在
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Population:
+      type: object
+      description: 人口档案(证件号脱敏展示)
+      properties:
+        id: { type: integer, format: int64 }
+        type: { type: string, description: 户籍/常住/流动 }
+        name: { type: string }
+        idCard: { type: string, description: 证件号(脱敏) }
+        gender: { type: string }
+        phone: { type: string }
+        insuredStatus: { type: string }
+        employmentStatus: { type: string }
+        version: { type: integer }
+        createTime: { type: string, format: date-time }
+        updateTime: { type: string, format: date-time }
+    PopulationCreateReq:
+      type: object
+      required: [type, name, idCard]
+      properties:
+        type: { type: string, enum: [户籍, 常住, 流动] }
+        name: { type: string, maxLength: 64 }
+        idCard: { type: string, maxLength: 32 }
+        gender: { type: string }
+        phone: { type: string }
+        insuredStatus: { type: string }
+        employmentStatus: { type: string }
+    PopulationPage:
+      type: object
+      properties:
+        records:
+          type: array
+          items: { $ref: '#/components/schemas/Population' }
+        total: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        current: { type: integer, format: int64 }
+        pages: { type: integer, format: int64 }
