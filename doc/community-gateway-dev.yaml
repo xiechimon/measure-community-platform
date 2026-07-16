@@ -12,6 +12,22 @@ spring:
           uri: lb://community-info
           predicates:
             - Path=/api/v1/population/**
+        - id: community-portal
+          uri: lb://community-portal
+          predicates:
+            - Path=/api/v1/portal/**
+        - id: community-service
+          uri: lb://community-service
+          predicates:
+            - Path=/api/v1/service/**
+        - id: community-welfare
+          uri: lb://community-welfare
+          predicates:
+            - Path=/api/v1/welfare/**
+        - id: community-affairs
+          uri: lb://community-affairs
+          predicates:
+            - Path=/api/v1/affairs/**
         - id: community-auth
           uri: lb://community-auth
           predicates:

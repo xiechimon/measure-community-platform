@@ -1,0 +1,22 @@
+server:
+  port: 9098
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+spring:
+  datasource:
+    dynamic:
+      primary: master
+      strict: false
+      datasource:
+        master:
+          url: jdbc:mysql://${SERVER_ADDRESS:127.0.0.1}:3306/measure_community?useUnicode=true&characterEncoding=utf-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai
+          username: root
+          password: root
+          driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    loadbalancer:
+      nacos:
+        enabled: true

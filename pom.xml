@@ -35,6 +35,10 @@
         <module>community-auth</module>
         <module>community-common</module>
         <module>community-info</module>
+        <module>community-portal</module>
+        <module>community-service</module>
+        <module>community-welfare</module>
+        <module>community-affairs</module>
     </modules>
 
     <dependencyManagement>

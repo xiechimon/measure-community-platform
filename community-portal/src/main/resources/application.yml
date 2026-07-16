@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: community-portal
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PWD:nacos}
+        namespace: 74193cd9-fac4-4f2a-addc-47c60508b15c
+        cluster-name: DEFAULT
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PWD:nacos}
+        file-extension: yaml
+        namespace: 74193cd9-fac4-4f2a-addc-47c60508b15c
+  config:
+    import:
+      - nacos:${spring.application.name}-${spring.profiles.active}.${spring.cloud.nacos.config.file-extension}
+      - nacos:redis-common.yaml
+      - nacos:common-config.yaml

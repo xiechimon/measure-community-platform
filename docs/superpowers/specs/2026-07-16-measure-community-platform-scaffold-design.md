@@ -7,9 +7,22 @@
 
 ## 1. 目标
 
-把通用脚手架 `spring-cloud-alibaba-base-demo` 落地为「数智化社区服务平台」的正式微服务工程骨架:统一命名、清理 demo、保留核心模块,并交付 1 个连真实 MySQL、可跑通的样板业务模块作为后续模块的复制模板。
+把通用脚手架 `spring-cloud-alibaba-base-demo` 落地为「数智化社区服务平台」的正式微服务工程**骨架**:统一命名、清理 demo、保留核心模块,交付 1 个连真实 MySQL、可跑通的样板业务模块(community-info),并按 **`开发计划7.13(1).xlsx`「阶段1」功能域**(以 xlsx 为准,docx 作补充),把一期各后端域搭成**可编译可启动的空壳模块**。
 
-本次**不**实现全部 20 个业务模块,也**不**含 AI(FastAPI)代码。
+**范围以 xlsx 一期为准,去除三级驾驶舱。** 一期后端骨架模块:
+
+| xlsx 功能域 | 后端模块 | 本次交付 |
+|---|---|---|
+| 信息服务 | community-info | 样板(连真实 MySQL,GET/POST) |
+| 系统配置(用户/角色/权限/日志) | community-auth | 复用脚手架 login+JWT |
+| 首页(数据账本/待办/图表) | community-portal | 空壳 + ping |
+| 社区服务(康养/助幼/上门) | community-service | 空壳 + ping |
+| 社区公益(资助/助农/法援) | community-welfare | 空壳 + ping |
+| 居务管理(活动/工单/随手拍/场地/工具/资讯) | community-affairs | 空壳 + ping(按 xlsx 归一域,后续可按 docx 微服务再拆) |
+
+**空壳** = pom + 主类(`@ComponentScan` 含 common+自身)+ `application.yml`(Nacos 注册/配置)+ `/api/v1/{域}/ping` 占位控制器 + 父 POM 注册 + 网关路由;业务实体/接口后续按 community-info 样板填。
+
+**不含**:三级驾驶舱、移动端前端(Taro/RN)、AI 智能体(FastAPI 独立仓);MQ/分布式事务/完整加密体系(见 §9)。
 
 ## 2. 命名规范(四处一致)
 
