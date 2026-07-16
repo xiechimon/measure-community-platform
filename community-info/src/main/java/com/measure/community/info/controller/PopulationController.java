@@ -1,7 +1,7 @@
 package com.measure.community.info.controller;
 
 import com.measure.community.common.model.RetObj;
-import com.measure.community.info.model.req.PopulationCreateReq;
+import com.measure.community.info.api.model.PopulationCreateReqDto;
 import com.measure.community.info.model.req.PopulationQueryReq;
 import com.measure.community.info.service.PopulationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,7 +25,7 @@ public class PopulationController {
 
     @Operation(summary = "人口信息录入")
     @PostMapping("/persons")
-    public RetObj createPerson(@RequestBody PopulationCreateReq req) {
+    public RetObj createPerson(@RequestBody PopulationCreateReqDto req) {
         return populationService.createPerson(req);
     }
 }

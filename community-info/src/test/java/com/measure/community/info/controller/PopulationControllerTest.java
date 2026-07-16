@@ -1,7 +1,7 @@
 package com.measure.community.info.controller;
 
 import com.measure.community.common.model.RetObj;
-import com.measure.community.info.model.req.PopulationCreateReq;
+import com.measure.community.info.api.model.PopulationCreateReqDto;
 import com.measure.community.info.model.req.PopulationQueryReq;
 import com.measure.community.info.service.PopulationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +46,7 @@ class PopulationControllerTest {
 
     @Test
     void createPerson_returnsOk() throws Exception {
-        when(populationService.createPerson(any(PopulationCreateReq.class)))
+        when(populationService.createPerson(any(PopulationCreateReqDto.class)))
                 .thenReturn(RetObj.success(1L));
         mockMvc.perform(post("/api/v1/population/persons")
                         .contentType(MediaType.APPLICATION_JSON)
