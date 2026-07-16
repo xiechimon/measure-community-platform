@@ -1,0 +1,41 @@
+server:
+  port: 9090
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false  # 用显式路由,不自动服务发现路由
+      routes:
+        - id: community-info
+          uri: lb://community-info
+          predicates:
+            - Path=/api/v1/population/**
+        - id: community-auth
+          uri: lb://community-auth
+          predicates:
+            - Path=/community-auth/**
+          filters:
+            - StripPrefix=1
+        - id: community-auth-docs
+          uri: lb://community-auth
+          predicates:
+            - Path=/community-auth/v3/api-docs
+    loadbalancer: #开启负载均衡
+      nacos:
+        enabled: true
+      retry:
+        enabled: true # 启用负载均衡重试机制
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: 信息服务
+        url: /api/v1/population/v3/api-docs
+      - name: 用户服务
+        url: /community-auth/v3/api-docs
+
+global:
+  switch:
+    user-header-filter:
+      enabled: false

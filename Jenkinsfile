@@ -28,7 +28,7 @@ pipeline {
         DOCKER_REGISTRY = "crpi-rq074obigx0czrju.cn-chengdu.personal.cr.aliyuncs.com"
         DOCKER_NAMESPACE = "xf-spring-cloud-alibaba"
         DOCKER_CREDENTIALS_ID = "aliyun-docker-credentials"
-        GITHUB_REPO = "git@github.com:RemainderTime/spring-cloud-alibaba-base-demo.git"
+        GITHUB_REPO = "git@github.com:RemainderTime/measure-community-platform.git"
         GITHUB_CREDENTIALS_ID = "github-ssh-key"
         DEPLOY_USER = "root"
         DEPLOY_HOST = "服务器ip"
@@ -41,7 +41,7 @@ pipeline {
             steps {
                 script {
                     // 🟢 直接从环境变量获取当前任务名
-                    // 如果任务在文件夹里，JOB_NAME 可能是 "folder/cloud-user"，用 split 取最后一段
+                    // 如果任务在文件夹里，JOB_NAME 可能是 "folder/community-auth"，用 split 取最后一段
                     env.REAL_SERVICE_NAME = env.JOB_NAME.split('/')[-1]
 
                     // 校验：确保任务名符合命名规范
@@ -49,7 +49,7 @@ pipeline {
                         error "任务名必须以 'cloud-' 开头（当前是: ${env.REAL_SERVICE_NAME}），请修改 Jenkins 任务名称！"
                     }
 
-                    // 修改构建标题，如：#5-cloud-gateway
+                    // 修改构建标题，如：#5-community-gateway
                     currentBuild.displayName = "#${BUILD_NUMBER}-${env.REAL_SERVICE_NAME}"
 
                     def config = getServiceConfig(env.REAL_SERVICE_NAME)
@@ -163,10 +163,9 @@ DEPLOY_SCRIPT
 def getServiceConfig(serviceName) {
     def config = [:]
     switch(serviceName) {
-        case 'cloud-consumer': config.containerName = 'cloud-consumer'; config.containerPort = '9092'; config.imageName = 'cloud-consumer'; break
-        case 'cloud-gateway':  config.containerName = 'cloud-gateway';  config.containerPort = '9090'; config.imageName = 'cloud-gateway'; break
-        case 'cloud-producer': config.containerName = 'cloud-producer'; config.containerPort = '9091'; config.imageName = 'cloud-producer'; break
-        case 'cloud-user':     config.containerName = 'cloud-user';     config.containerPort = '9093'; config.imageName = 'cloud-user'; break
+        case 'community-gateway':  config.containerName = 'community-gateway';  config.containerPort = '9090'; config.imageName = 'community-gateway'; break
+        case 'community-auth':     config.containerName = 'community-auth';     config.containerPort = '9093'; config.imageName = 'community-auth'; break
+        case 'community-info':    config.containerName = 'community-info';    config.containerPort = '9094'; config.imageName = 'community-info'; break
         default: error("未定义的服务映射: ${serviceName}。请检查 getServiceConfig 函数。")
     }
     return config
