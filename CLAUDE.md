@@ -23,7 +23,8 @@ mvn -pl community-info test -Dtest=PopulationControllerTest#createPerson_returns
 ```
 
 - 单测用 **Mockito + MockMvc standaloneSetup**（见 `PopulationControllerTest`）——不加载 Spring 上下文、不连 Nacos/DB，可离线跑。新写的 controller 测试沿用这个模式，不要用 `@SpringBootTest`。
-- 依赖走阿里云镜像（父 pom `repositories`）。
+- 依赖走阿里云镜像：父 pom `repositories` 覆盖普通依赖;**插件及其 provider（如 surefire-junit-platform）走 `~/.m2/settings.xml` 里 `mirrorOf=*` 的阿里云镜像**（境外中央仓在本网络不稳，缺此镜像会在 `mvn test` 阶段拉不到 surefire provider）。
+- 构建须在 **WSL 内用原生路径**（`/home/...`）跑,Windows 版 Maven 对 `\\wsl.localhost\` UNC 路径解析父 POM 有 bug。
 
 ### 本地起服务的两种 profile
 每个业务模块有两份配置，关键区别是**业务配置从哪来**：
@@ -70,5 +71,5 @@ common 里的 bean（`RetObj`、`GlobalExceptionHandler`、`RequestHeaderFilter`
 - groupId `com.measure`；模块目录/artifactId 前缀 `community-`；包根 `com.measure.community.{模块}`；启动类 `Community{Module}Application`；`spring.application.name = community-{module}`。
 - 新增模块后：父 `pom.xml` 的 `<modules>` 加一行 + 网关 `doc/community-gateway-dev.yaml` 加路由（`lb://community-xxx`，`Path=/api/v1/xxx/**`）+ Nacos 建 `community-xxx-dev.yaml`。
 - 依赖版本统一在**父 pom 的 `<properties>` + `dependencyManagement`** 管理，子模块不写版本号。
-- `community-auth` 由脚手架 `cloud-user` 改名而来；CI(Jenkinsfile) 按 Job 名（需 `cloud-` 前缀）识别服务并构建 Docker 镜像部署。
+- `community-auth` 由脚手架 `cloud-user` 改名而来；CI(Jenkinsfile) 按 Job 名（`community-` 前缀,如 `community-gateway`/`community-info`）识别服务并构建 Docker 镜像部署，`case` 块含各服务端口(gateway 9090 / auth 9093 / info 9094 / 空壳 9095-9098)。
 - 设计文档：`docs/详细功能设计说明书...docx`、`docs/开发计划7.13(1).xlsx`（阶段范围以此为准，不含三级驾驶舱）、`docs/superpowers/` 下有脚手架 spec/plan。
