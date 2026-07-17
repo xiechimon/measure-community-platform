@@ -7,15 +7,16 @@
 - 不兼容变更升版本 `/api/v2`。
 
 ## 统一响应
-所有接口返回 `RetObj`:
+所有接口返回 `RetObj`(依据设计说明书 §7.1):
 ```json
-{ "code": 200, "message": "请求成功", "data": {} }
+{ "code": 200, "message": "请求成功", "data": {}, "traceId": "xxxx" }
 ```
-- 成功 `code=200`;失败 `code` 取 `SystemStatus` 枚举,`message` 为原因,`data` 可空。
-- OpenAPI 响应用该信封描述(`code`/`message`/`data`),`data` 引用具体 schema。
+- 成功 `code=200`;失败 `code` 取分段业务码(见「错误码」),`message` 为原因,`data` 可空。
+- `traceId` 为全链路追踪 ID,由 `RetObj` 构造时从 MDC 自动回填,报障时按其检索日志。
+- OpenAPI 响应用该信封描述(`code`/`message`/`data`/`traceId`),`data` 引用具体 schema。
 
 ## 分页
-- 入参:`pageNo`(整数,≥1,默认 1)、`pageSize`(整数,1–100,默认 10)。
+- 入参:`page`(整数,≥1,默认 1)、`size`(整数,1–100,默认 10);排序/过滤用 `sort`/`filter`(§7.1)。
 - 出参(MyBatis-Plus Page):`records`(数组)、`total`、`size`、`current`、`pages`。
 
 ## 鉴权与权限
@@ -24,7 +25,10 @@
 - 数据权限按角色 / `data_scope`(见说明书 §6),行级过滤由 MyBatis-Plus 插件追加。
 
 ## 错误码
-- 集中在 `SystemStatus` 枚举;每个接口在 OpenAPI 的 `responses` 里列出可能的错误场景(如 400/403/500)。
+- **分段(5 位,§7.1)**:`1xxxx 鉴权` / `2xxxx 业务` / `5xxxx 系统`。响应体 `code` 用分段业务码,HTTP status 另置(语义化)。
+- 通用码集中在 `SystemStatus`(实现 `ErrorCode`):如 `UNAUTHORIZED=10001`、`FORBIDDEN=10002`、`BAD_REQUEST=20001`、`NOT_FOUND=20002`、`METHOD_NOT_ALLOWED=20003`、`CONFLICT=20004`、`INTERNAL_ERROR=50000`。
+- 模块专属业务码:各模块自建枚举实现 `ErrorCode`(扩展 2xxxx),`BizException` 携带之;不要堆进 `SystemStatus`。
+- 每个接口在 OpenAPI 的 `responses` 里列出可能的错误场景。
 
 ## 字段格式
 - 时间:ISO-8601 `yyyy-MM-dd'T'HH:mm:ss`(Java `LocalDateTime`)。

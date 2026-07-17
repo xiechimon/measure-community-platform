@@ -32,7 +32,7 @@ public class PopulationServiceImpl extends ServiceImpl<PopulationMapper, Populat
             qw.eq(Population::getIdCardHmac, HmacUtil.blindIndex(req.getIdCard()));
         }
         qw.orderByDesc(Population::getCreateTime);
-        Page<Population> page = this.page(new Page<>(req.getPageNo(), req.getPageSize()), qw);
+        Page<Population> page = this.page(new Page<>(req.getPage(), req.getSize()), qw);
 
         PopulationPageDto dto = new PopulationPageDto();
         List<PopulationDto> records = page.getRecords().stream().map(this::toDto).toList();

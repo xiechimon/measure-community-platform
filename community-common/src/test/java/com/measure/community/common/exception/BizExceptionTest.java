@@ -10,14 +10,14 @@ class BizExceptionTest {
     @Test
     void carriesStatusAndCustomMessage() {
         BizException e = new BizException(SystemStatus.CONFLICT, "该证件号已存在");
-        assertEquals(SystemStatus.CONFLICT, e.getStatus());
+        assertEquals(SystemStatus.CONFLICT, e.getErrorCode());
         assertEquals("该证件号已存在", e.getMessage());
     }
 
     @Test
     void statusOnly_usesStatusDefaultMessage() {
         BizException e = new BizException(SystemStatus.FORBIDDEN);
-        assertEquals(SystemStatus.FORBIDDEN, e.getStatus());
+        assertEquals(SystemStatus.FORBIDDEN, e.getErrorCode());
         assertEquals("无权限访问", e.getMessage());
     }
 }

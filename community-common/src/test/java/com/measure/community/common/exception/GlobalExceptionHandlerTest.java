@@ -43,7 +43,7 @@ class GlobalExceptionHandlerTest {
     void bizException_mapsToItsStatusAndMessage() throws Exception {
         mockMvc.perform(get("/biz"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.code").value(20004))
                 .andExpect(jsonPath("$.message").value("该证件号已存在"));
     }
 
@@ -51,7 +51,7 @@ class GlobalExceptionHandlerTest {
     void unknownException_returns500AndDoesNotLeakMessage() throws Exception {
         mockMvc.perform(get("/boom"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value(500))
+                .andExpect(jsonPath("$.code").value(50000))
                 .andExpect(jsonPath("$.message").value("系统繁忙，请稍后重试"))
                 .andExpect(jsonPath("$.message", not(containsString("secret sql"))));
     }
@@ -60,6 +60,6 @@ class GlobalExceptionHandlerTest {
     void methodNotSupported_returns405() throws Exception {
         mockMvc.perform(post("/biz"))
                 .andExpect(status().isMethodNotAllowed())
-                .andExpect(jsonPath("$.code").value(405));
+                .andExpect(jsonPath("$.code").value(20003));
     }
 }

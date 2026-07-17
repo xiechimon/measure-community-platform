@@ -46,7 +46,7 @@ class PopulationControllerTest {
     void listPersons_returnsOk() throws Exception {
         when(populationService.pagePersons(any(PopulationQueryReq.class)))
                 .thenReturn(new PopulationPageDto());
-        mockMvc.perform(get("/api/v1/population/persons").param("pageNo", "1"))
+        mockMvc.perform(get("/api/v1/population/persons").param("page", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
     }
@@ -70,7 +70,7 @@ class PopulationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"张三\",\"idCard\":\"3301X\",\"type\":\"户籍\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.code").value(20004))
                 .andExpect(jsonPath("$.message").value("该证件号已存在"));
     }
 }

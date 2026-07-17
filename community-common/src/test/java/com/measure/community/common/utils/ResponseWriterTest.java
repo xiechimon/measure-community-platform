@@ -16,7 +16,7 @@ class ResponseWriterTest {
         assertEquals(403, resp.getStatus());
         assertTrue(resp.getContentType().contains("application/json"));
         String body = resp.getContentAsString();
-        assertTrue(body.contains("\"code\":403"), body);
+        assertTrue(body.contains("\"code\":10002"), body);
         assertTrue(body.contains("无权限访问"), body);
     }
 }

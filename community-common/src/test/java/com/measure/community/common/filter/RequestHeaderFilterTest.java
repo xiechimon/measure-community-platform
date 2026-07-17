@@ -35,7 +35,7 @@ class RequestHeaderFilterTest {
     void missingInternalAuth_returns403AndRetObj() throws Exception {
         mockMvc.perform(get("/ping"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value(403));
+                .andExpect(jsonPath("$.code").value(10002));
     }
 
     @Test

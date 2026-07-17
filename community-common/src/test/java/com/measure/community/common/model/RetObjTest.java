@@ -18,14 +18,14 @@ class RetObjTest {
     @Test
     void errorWithStatusAndMessage_usesStatusCodeAndCustomMessage() {
         RetObj<?> r = RetObj.error(SystemStatus.CONFLICT, "该证件号已存在");
-        assertEquals(409, r.getCode());
+        assertEquals(20004, r.getCode());
         assertEquals("该证件号已存在", r.getMessage());
     }
 
     @Test
-    void errorWithString_defaultsTo500() {
+    void errorWithString_defaultsToInternalError() {
         RetObj<?> r = RetObj.error("boom");
-        assertEquals(500, r.getCode());
+        assertEquals(50000, r.getCode());
         assertEquals("boom", r.getMessage());
     }
 }

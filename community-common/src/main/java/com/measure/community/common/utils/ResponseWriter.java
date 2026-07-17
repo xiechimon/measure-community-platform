@@ -16,7 +16,7 @@ public final class ResponseWriter {
     }
 
     public static void writeError(HttpServletResponse resp, SystemStatus status) throws IOException {
-        resp.setStatus(status.getCode());
+        resp.setStatus(status.getHttpStatus());
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
         resp.getWriter().write(JSON.toJSONString(RetObj.error(status)));

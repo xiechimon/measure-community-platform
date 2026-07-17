@@ -27,10 +27,10 @@ paths:
         - name: idCard
           in: query
           schema: { type: string }
-        - name: pageNo
+        - name: page
           in: query
           schema: { type: integer, minimum: 1, default: 1 }
-        - name: pageSize
+        - name: size
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
       responses:
