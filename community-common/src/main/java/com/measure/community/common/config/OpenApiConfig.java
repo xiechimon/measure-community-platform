@@ -28,7 +28,7 @@ public class OpenApiConfig {
     @Value("${spring.application.name}")
     private String serverName;
 
-    @Value("${server.addr}")
+    @Value("${server.addr:http://localhost:9090/}")
     private String serverAddr;
 
 
