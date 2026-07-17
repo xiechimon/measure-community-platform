@@ -11,39 +11,39 @@
 name: measure-community
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: mc-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      TZ: Asia/Shanghai
-    ports:
-      - "127.0.0.1:3306:3306"
-    volumes:
-      - mc-mysql-data:/var/lib/mysql
-      # 首次初始化时按文件名顺序执行:01 建人口表、02 建 RBAC 表+种子
-      - ./database/mysql:/docker-entrypoint-initdb.d:ro
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    container_name: mc-redis
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:6379:6379"
-    volumes:
-      - mc-redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+#  mysql:
+#    image: mysql:8.0
+#    container_name: mc-mysql
+#    restart: unless-stopped
+#    environment:
+#      MYSQL_ROOT_PASSWORD: root
+#      TZ: Asia/Shanghai
+#    ports:
+#      - "127.0.0.1:3306:3306"
+#    volumes:
+#      - mc-mysql-data:/var/lib/mysql
+#      # 首次初始化时按文件名顺序执行:01 建人口表、02 建 RBAC 表+种子
+#      - ./database/mysql:/docker-entrypoint-initdb.d:ro
+#    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+#    healthcheck:
+#      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 10
+#
+#  redis:
+#    image: redis:7-alpine
+#    container_name: mc-redis
+#    restart: unless-stopped
+#    ports:
+#      - "127.0.0.1:6379:6379"
+#    volumes:
+#      - mc-redis-data:/data
+#    healthcheck:
+#      test: ["CMD", "redis-cli", "ping"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
 
   nacos:
     image: nacos/nacos-server:v2.3.2
