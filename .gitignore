@@ -32,3 +32,10 @@ build/
 ### VS Code ###
 .vscode/
 .DS_Store
+
+### 运行时日志(logback 在各模块下生成,不入库)###
+logs/
+*.log
+
+### 文档编辑器临时锁文件(LibreOffice/WPS)###
+.~lock.*#
