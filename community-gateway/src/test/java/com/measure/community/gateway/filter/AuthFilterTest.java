@@ -74,7 +74,37 @@ class AuthFilterTest {
         verify(chain, never()).filter(any());
         String body = exchange.getResponse().getBodyAsString().block();
         assertNotNull(body);
-        assertTrue(body.contains("请先登录"), body);
+        assertTrue(body.contains("\"code\":10001"), body);
+    }
+
+    @Test
+    void protectedPath_bareBearerToken_returns401_andDoesNotForward() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/service/anything")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer"));
+
+        filter.filter(exchange, chain).block();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verify(chain, never()).filter(any());
+        String body = exchange.getResponse().getBodyAsString().block();
+        assertNotNull(body);
+        assertTrue(body.contains("\"code\":10001"), body);
+    }
+
+    @Test
+    void protectedPath_blankBearerToken_returns401_andDoesNotForward() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/service/anything")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer   "));
+
+        filter.filter(exchange, chain).block();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verify(chain, never()).filter(any());
+        String body = exchange.getResponse().getBodyAsString().block();
+        assertNotNull(body);
+        assertTrue(body.contains("\"code\":10001"), body);
     }
 
     @Test
@@ -99,7 +129,7 @@ class AuthFilterTest {
     }
 
     @Test
-    void tokenNotInRedis_returns500() {
+    void tokenNotInRedis_returns401() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(anyString())).thenReturn(null);
 
@@ -109,8 +139,11 @@ class AuthFilterTest {
 
         filter.filter(exchange, chain).block();
 
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exchange.getResponse().getStatusCode());
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         verify(chain, never()).filter(any());
+        String body = exchange.getResponse().getBodyAsString().block();
+        assertNotNull(body);
+        assertTrue(body.contains("\"code\":10001"), body);
     }
 
     @Test

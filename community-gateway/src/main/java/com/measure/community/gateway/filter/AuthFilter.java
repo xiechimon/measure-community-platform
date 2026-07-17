@@ -35,7 +35,7 @@ import java.util.*;
 @Component
 public class AuthFilter implements GlobalFilter, Ordered {
 
-    private static final List<String> EXCLUDE_PATH_LIST = List.of("/api/v1/auth/login", "/api/v1/population");
+    private static final List<String> EXCLUDE_PATH_LIST = List.of("/api/v1/auth/login");
     private static final String TRACE_ID_HEADER = "traceId";
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
 
@@ -100,13 +100,15 @@ public class AuthFilter implements GlobalFilter, Ordered {
 
         // --- 2. 获取 Token 逻辑 ---
         String token = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (token == null || !token.startsWith("Bearer")) {
-            // 返回格式统一对齐 RetObj 的 {"code", "message", "data"} 字段
-            return errorResponse(exchange, "{\"code\":401,\"message\":\"请先登录\"}", HttpStatus.UNAUTHORIZED);
+        if (token == null || !token.startsWith("Bearer ")) {
+            return errorResponse(exchange, "{\"code\":10001,\"message\":\"请先登录\"}", HttpStatus.UNAUTHORIZED);
         }
 
         // --- 3. 校验 Token 逻辑 ---
-        String finalToken = token.startsWith("Bearer") ? token.substring(7) : token;
+        String finalToken = token.substring(7).trim();
+        if (!StringUtils.hasText(finalToken)) {
+            return errorResponse(exchange, "{\"code\":10001,\"message\":\"请先登录\"}", HttpStatus.UNAUTHORIZED);
+        }
         String key = "alibaba-token:" + finalToken;
 
         // 【优化】避免在 Netty 的 EventLoop 线程中执行阻塞的 Redis 查询
@@ -121,7 +123,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
                     return this.successResponse(exchange, chain, traceId, userId, requestBuilder.build(), startTime);
                 })
                 // 如果 Mono.fromCallable 返回 null（即 Redis 中没有此 token），会发出 empty 信号，在此处拦截并报错
-                .switchIfEmpty(Mono.defer(() -> errorResponse(exchange, "{\"code\":500,\"message\":\"登录token无效或已过期\"}", HttpStatus.INTERNAL_SERVER_ERROR)));
+                .switchIfEmpty(Mono.defer(() -> errorResponse(exchange, "{\"code\":10001,\"message\":\"登录token无效或已过期\"}", HttpStatus.UNAUTHORIZED)));
     }
 
     private boolean isWhiteList(String requestURI) {

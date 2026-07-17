@@ -3,6 +3,9 @@ package com.measure.community.auth.controller;
 import com.measure.community.auth.model.req.LoginInfoReq;
 import com.measure.community.auth.model.vo.LoginUser;
 import com.measure.community.auth.service.UserService;
+import com.measure.community.common.enums.SystemStatus;
+import com.measure.community.common.exception.BizException;
+import com.measure.community.common.exception.GlobalExceptionHandler;
 import com.measure.community.common.model.RetObj;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +40,9 @@ class UserControllerTest {
 
     @BeforeEach
     void setup() {
-        mockMvc = MockMvcBuilders.standaloneSetup(userController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(userController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -59,15 +64,29 @@ class UserControllerTest {
     }
 
     @Test
-    void login_badCredentials_returnsErrorBody() throws Exception {
-        when(userService.login(any(LoginInfoReq.class))).thenReturn(RetObj.error("账号或密码错误"));
+    void login_badCredentials_returnsUnauthorized() throws Exception {
+        when(userService.login(any(LoginInfoReq.class)))
+                .thenThrow(new BizException(SystemStatus.UNAUTHORIZED, "账号或密码错误"));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"account\":\"admin\",\"password\":\"bad\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(50000))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(10001))
                 .andExpect(jsonPath("$.message").value("账号或密码错误"));
+    }
+
+    @Test
+    void login_disabledAccount_returnsForbidden() throws Exception {
+        when(userService.login(any(LoginInfoReq.class)))
+                .thenThrow(new BizException(SystemStatus.FORBIDDEN, "账号已停用"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"account\":\"admin\",\"password\":\"correct\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(10002))
+                .andExpect(jsonPath("$.message").value("账号已停用"));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.measure.community.info.controller;
 
+import com.measure.community.common.annotation.RequiresPermission;
 import com.measure.community.common.model.RetObj;
 import com.measure.community.info.api.model.PopulationCreateReqDto;
 import com.measure.community.info.api.model.PopulationVersionUpdateReqDto;
@@ -23,18 +24,21 @@ public class PopulationController {
 
     @Operation(summary = "人口信息分页查询")
     @GetMapping("/persons")
+    @RequiresPermission("population:query")
     public RetObj listPersons(PopulationQueryReq req) {
         return RetObj.success(populationService.pagePersons(req));
     }
 
     @Operation(summary = "人口信息录入")
     @PostMapping("/persons")
+    @RequiresPermission("population:create")
     public RetObj createPerson(@Valid @RequestBody PopulationCreateReqDto req) {
         return RetObj.success(populationService.createPerson(req));
     }
 
     @Operation(summary = "人口信息版本更新(仅追加,不可删除/覆盖)")
     @PostMapping("/persons/{id}/versions")
+    @RequiresPermission("population:update")
     public RetObj updatePersonVersion(@PathVariable Long id,
                                       @Valid @RequestBody PopulationVersionUpdateReqDto req) {
         return RetObj.success(populationService.updateVersion(id, req));
@@ -42,6 +46,7 @@ public class PopulationController {
 
     @Operation(summary = "人口变更历史查询")
     @GetMapping("/persons/{id}/versions")
+    @RequiresPermission("population:query")
     public RetObj listPersonVersions(@PathVariable Long id,
                                      @RequestParam(defaultValue = "1") long page,
                                      @RequestParam(defaultValue = "10") long size) {

@@ -41,6 +41,10 @@ paths:
                       account: { type: string }
                       name: { type: string }
                       token: { type: string }
+        '401':
+          description: 账号或密码错误
+        '403':
+          description: 账号已停用
 components:
   securitySchemes:
     bearerAuth:

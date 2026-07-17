@@ -4,6 +4,8 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.measure.community.auth.mapper.SysUserMapper;
+import com.measure.community.common.enums.SystemStatus;
+import com.measure.community.common.exception.BizException;
 import com.measure.community.common.model.RetObj;
 import com.measure.community.auth.model.entity.SysUser;
 import com.measure.community.auth.model.req.LoginInfoReq;
@@ -38,10 +40,10 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impleme
 				.eq(SysUser::getUsername, req.getAccount()));
 		// 2. 校验:存在 + BCrypt 密码匹配(账号/密码错误统一提示,不泄漏哪个错)
 		if (Objects.isNull(user) || !passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-			return RetObj.error("账号或密码错误");
+			throw new BizException(SystemStatus.UNAUTHORIZED, "账号或密码错误");
 		}
 		if (user.getStatus() != null && user.getStatus() == 0) {
-			return RetObj.error("账号已停用");
+			throw new BizException(SystemStatus.FORBIDDEN, "账号已停用");
 		}
 
 		// 3. 加载角色码 / 权限点码

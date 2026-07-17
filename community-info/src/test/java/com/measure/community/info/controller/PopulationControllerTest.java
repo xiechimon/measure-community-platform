@@ -3,6 +3,7 @@ package com.measure.community.info.controller;
 import com.measure.community.common.enums.SystemStatus;
 import com.measure.community.common.exception.BizException;
 import com.measure.community.common.exception.GlobalExceptionHandler;
+import com.measure.community.common.annotation.RequiresPermission;
 import com.measure.community.info.api.model.PopulationCreateReqDto;
 import com.measure.community.info.api.model.PopulationHisPageDto;
 import com.measure.community.info.api.model.PopulationPageDto;
@@ -23,6 +24,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -109,5 +112,23 @@ class PopulationControllerTest {
         mockMvc.perform(get("/api/v1/population/persons/1/versions").param("page", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void populationMethods_requireFunctionalPermissions() throws NoSuchMethodException {
+        assertPermission("listPersons", new Class<?>[]{PopulationQueryReq.class}, "population:query");
+        assertPermission("createPerson", new Class<?>[]{PopulationCreateReqDto.class}, "population:create");
+        assertPermission("updatePersonVersion",
+                new Class<?>[]{Long.class, PopulationVersionUpdateReqDto.class}, "population:update");
+        assertPermission("listPersonVersions",
+                new Class<?>[]{Long.class, long.class, long.class}, "population:query");
+    }
+
+    private static void assertPermission(String name, Class<?>[] types, String expected)
+            throws NoSuchMethodException {
+        RequiresPermission annotation = PopulationController.class
+                .getMethod(name, types).getAnnotation(RequiresPermission.class);
+        assertNotNull(annotation);
+        assertArrayEquals(new String[]{expected}, annotation.value());
     }
 }

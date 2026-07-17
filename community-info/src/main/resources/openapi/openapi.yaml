@@ -17,6 +17,8 @@ paths:
       tags: [人口信息]
       summary: 人口信息分页查询
       operationId: listPersons
+      security:
+        - bearerAuth: []
       parameters:
         - name: type
           in: query
@@ -44,12 +46,16 @@ paths:
                   code: { type: integer, example: 200 }
                   message: { type: string, example: 请求成功 }
                   data: { $ref: '#/components/schemas/PopulationPage' }
+        '401':
+          description: 未认证或 token 失效
         '403':
-          description: 无数据权限
+          description: 无权限访问
     post:
       tags: [人口信息]
       summary: 人口信息录入
       operationId: createPerson
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -70,11 +76,17 @@ paths:
           description: 证件号为空
         '409':
           description: 证件号已存在
+        '401':
+          description: 未认证或 token 失效
+        '403':
+          description: 无权限访问
   /api/v1/population/persons/{id}/versions:
     post:
       tags: [人口信息]
       summary: 人口信息版本更新(仅追加,不可删除/覆盖,留存历史)
       operationId: updatePersonVersion
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -100,10 +112,16 @@ paths:
           description: 人口档案不存在
         '409':
           description: 版本冲突(并发更新)
+        '401':
+          description: 未认证或 token 失效
+        '403':
+          description: 无权限访问
     get:
       tags: [人口信息]
       summary: 人口变更历史查询
       operationId: listPersonVersions
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -128,6 +146,10 @@ paths:
                   data: { $ref: '#/components/schemas/PopulationHisPage' }
         '404':
           description: 人口档案不存在
+        '401':
+          description: 未认证或 token 失效
+        '403':
+          description: 无权限访问
 components:
   securitySchemes:
     bearerAuth:
