@@ -14,10 +14,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -54,7 +52,11 @@ public class RequestHeaderFilter implements Filter {
         // 2. 网关防刷校验
         String header = req.getHeader(CommonConstant.X_INTERNAL_AUTH);
         if (!CommonConstant.SECRET_KEY.equals(header)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "非法访问接口，禁止绕过网关访问");
+            log.warn("非法访问接口，禁止绕过网关访问: {}", uri);
+            com.measure.community.common.utils.ResponseWriter.writeError(
+                    (jakarta.servlet.http.HttpServletResponse) response,
+                    com.measure.community.common.enums.SystemStatus.FORBIDDEN);
+            return;
         }
         
         // 3. 处理用户信息并存入 MDC

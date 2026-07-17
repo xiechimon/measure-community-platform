@@ -31,6 +31,16 @@ public class MybatisPlusConfig implements MetaObjectHandler {
     }
 
     /**
+     * 当前审计人：有登录用户返回其 id，否则返回系统占位 "system"。
+     */
+    public static String currentAuditUser() {
+        String userId = UserContextHolder.getUserId();
+        return (userId != null && !userId.isBlank())
+                ? userId
+                : com.measure.community.common.constant.CommonConstant.AUDIT_SYSTEM_USER;
+    }
+
+    /**
      * 插入时的填充策略
      */
     @Override
@@ -39,13 +49,11 @@ public class MybatisPlusConfig implements MetaObjectHandler {
         // 注意：这里的属性名 "createTime" 对应的是实体类中的属性名，而不是数据库字段名 "create_time"
         this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, LocalDateTime.now());
         this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
-        
-        // 自动填充创建人和更新人
-        String userId = UserContextHolder.getUserId();
-        if (userId != null) {
-            this.strictInsertFill(metaObject, "createBy", String.class, userId);
-            this.strictInsertFill(metaObject, "updateBy", String.class, userId);
-        }
+
+        // 自动填充创建人和更新人（无登录用户时填充 "system" 占位）
+        String auditUser = currentAuditUser();
+        this.strictInsertFill(metaObject, "createBy", String.class, auditUser);
+        this.strictInsertFill(metaObject, "updateBy", String.class, auditUser);
     }
 
     /**
@@ -55,11 +63,8 @@ public class MybatisPlusConfig implements MetaObjectHandler {
     public void updateFill(MetaObject metaObject) {
         // 自动填充更新时间
         this.strictUpdateFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
-        
-        // 自动填充更新人
-        String userId = UserContextHolder.getUserId();
-        if (userId != null) {
-            this.strictUpdateFill(metaObject, "updateBy", String.class, userId);
-        }
+
+        // 自动填充更新人（无登录用户时填充 "system" 占位）
+        this.strictUpdateFill(metaObject, "updateBy", String.class, currentAuditUser());
     }
 }

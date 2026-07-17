@@ -13,4 +13,7 @@ public interface CommonConstant {
 	public static final String SECRET_KEY = "expected-secret";
 	public static final String X_USERINFO = "X-UserInfo";
 	public static final String TRACE_ID_HEADER = "traceId";
+
+	/** 无登录用户时的审计人占位 */
+	public static final String AUDIT_SYSTEM_USER = "system";
 }
