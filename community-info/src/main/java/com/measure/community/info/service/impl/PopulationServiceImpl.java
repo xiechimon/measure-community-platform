@@ -3,7 +3,6 @@ package com.measure.community.info.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.measure.community.common.model.RetObj;
 import com.measure.community.info.api.model.PopulationCreateReqDto;
 import com.measure.community.info.api.model.PopulationDto;
 import com.measure.community.info.api.model.PopulationPageDto;
@@ -21,7 +20,7 @@ import java.util.List;
 public class PopulationServiceImpl extends ServiceImpl<PopulationMapper, Population> implements PopulationService {
 
     @Override
-    public RetObj pagePersons(PopulationQueryReq req) {
+    public PopulationPageDto pagePersons(PopulationQueryReq req) {
         LambdaQueryWrapper<Population> qw = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(req.getType())) {
             qw.eq(Population::getType, req.getType());
@@ -42,19 +41,21 @@ public class PopulationServiceImpl extends ServiceImpl<PopulationMapper, Populat
         dto.setSize(page.getSize());
         dto.setCurrent(page.getCurrent());
         dto.setPages(page.getPages());
-        return RetObj.success(dto);
+        return dto;
     }
 
     @Override
-    public RetObj createPerson(PopulationCreateReqDto req) {
+    public Long createPerson(PopulationCreateReqDto req) {
         if (!StringUtils.hasText(req.getIdCard())) {
-            return RetObj.error("证件号不能为空");
+            throw new com.measure.community.common.exception.BizException(
+                    com.measure.community.common.enums.SystemStatus.BAD_REQUEST, "证件号不能为空");
         }
         String hmac = HmacUtil.blindIndex(req.getIdCard());
         long exists = this.count(new LambdaQueryWrapper<Population>()
                 .eq(Population::getIdCardHmac, hmac));
         if (exists > 0) {
-            return RetObj.error("该证件号已存在");
+            throw new com.measure.community.common.exception.BizException(
+                    com.measure.community.common.enums.SystemStatus.CONFLICT, "该证件号已存在");
         }
         Population p = new Population();
         p.setType(req.getType() == null ? null : req.getType().getValue());
@@ -67,7 +68,7 @@ public class PopulationServiceImpl extends ServiceImpl<PopulationMapper, Populat
         p.setEmploymentStatus(req.getEmploymentStatus());
         p.setVersion(1);
         this.save(p);
-        return RetObj.success(p.getId());
+        return p.getId();
     }
 
     /** 实体 → 展示 DTO,证件号脱敏 */
