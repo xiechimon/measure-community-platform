@@ -1,0 +1,306 @@
+openapi: 3.0.3
+info:
+  title: 数智化社区服务平台 API
+  version: v1
+  description: 六个业务模块的聚合 API 契约快照，供 Apifox 导入；所有外部请求经网关访问。
+servers:
+  - url: http://localhost:9090
+    description: 本地网关
+security:
+  - bearerAuth: []
+tags:
+  - name: 人口信息
+    description: 户籍/常住/流动人口档案
+  - name: 鉴权
+  - name: 首页门户
+  - name: 社区服务
+  - name: 社区公益
+  - name: 居务管理
+paths:
+  /api/v1/population/persons:
+    get:
+      tags: [人口信息]
+      summary: 人口信息分页查询
+      operationId: listPersons
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string, enum: [户籍, 常住, 流动] }
+        - name: name
+          in: query
+          schema: { type: string }
+        - name: idCard
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string, example: 请求成功 }
+                  data: { $ref: '#/components/schemas/PopulationPage' }
+        '403':
+          description: 无数据权限
+    post:
+      tags: [人口信息]
+      summary: 人口信息录入
+      operationId: createPerson
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PopulationCreateReq' }
+      responses:
+        '200':
+          description: 录入成功,data 为人口档案ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: integer, format: int64, description: 人口档案ID }
+        '400':
+          description: 证件号为空
+        '409':
+          description: 证件号已存在
+  /api/v1/population/persons/{id}/versions:
+    post:
+      tags: [人口信息]
+      summary: 人口信息版本更新(仅追加,不可删除/覆盖,留存历史)
+      operationId: updatePersonVersion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PopulationVersionUpdateReq' }
+      responses:
+        '200':
+          description: 更新成功,data 为新版本号
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: integer, description: 新版本号 }
+        '404':
+          description: 人口档案不存在
+        '409':
+          description: 版本冲突(并发更新)
+    get:
+      tags: [人口信息]
+      summary: 人口变更历史查询
+      operationId: listPersonVersions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/PopulationHisPage' }
+        '404':
+          description: 人口档案不存在
+  /api/v1/auth/login:
+    post:
+      tags: [鉴权]
+      summary: 登录(免鉴权白名单)
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account, password]
+              properties:
+                account: { type: string, example: admin }
+                password: { type: string, example: "123456" }
+      responses:
+        '200':
+          description: 登录成功,data 含 token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: integer, format: int64 }
+                      account: { type: string }
+                      name: { type: string }
+                      token: { type: string }
+  /api/v1/portal/ping:
+    get:
+      tags: [首页门户]
+      summary: 健康探针
+      operationId: portalPing
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: string, example: community-portal ok }
+  /api/v1/service/ping:
+    get:
+      tags: [社区服务]
+      summary: 健康探针
+      operationId: servicePing
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: string, example: community-service ok }
+  /api/v1/welfare/ping:
+    get:
+      tags: [社区公益]
+      summary: 健康探针
+      operationId: welfarePing
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: string, example: community-welfare ok }
+  /api/v1/affairs/ping:
+    get:
+      tags: [居务管理]
+      summary: 健康探针
+      operationId: affairsPing
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: string, example: community-affairs ok }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Population:
+      type: object
+      description: 人口档案(证件号脱敏展示)
+      properties:
+        id: { type: integer, format: int64 }
+        type: { type: string, description: 户籍/常住/流动 }
+        name: { type: string }
+        idCard: { type: string, description: 证件号(脱敏) }
+        gender: { type: string }
+        phone: { type: string }
+        insuredStatus: { type: string }
+        employmentStatus: { type: string }
+        version: { type: integer }
+        createTime: { type: string, format: date-time }
+        updateTime: { type: string, format: date-time }
+    PopulationCreateReq:
+      type: object
+      required: [type, name, idCard]
+      properties:
+        type: { type: string, enum: [户籍, 常住, 流动] }
+        name: { type: string, maxLength: 64 }
+        idCard: { type: string, maxLength: 32 }
+        gender: { type: string }
+        phone: { type: string }
+        insuredStatus: { type: string }
+        employmentStatus: { type: string }
+    PopulationPage:
+      type: object
+      properties:
+        records:
+          type: array
+          items: { $ref: '#/components/schemas/Population' }
+        total: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        current: { type: integer, format: int64 }
+        pages: { type: integer, format: int64 }
+    PopulationVersionUpdateReq:
+      type: object
+      description: 可变更字段(证件号不可改)。仅传需变更的字段。
+      properties:
+        type: { type: string, enum: [户籍, 常住, 流动] }
+        name: { type: string, maxLength: 64 }
+        gender: { type: string }
+        phone: { type: string }
+        insuredStatus: { type: string }
+        employmentStatus: { type: string }
+    PopulationHis:
+      type: object
+      description: 人口变更历史项(快照证件号脱敏)
+      properties:
+        id: { type: integer, format: int64 }
+        populationId: { type: integer, format: int64 }
+        version: { type: integer }
+        snapshot: { type: string, description: "该版本业务快照(JSON,已脱敏)" }
+        changedField: { type: string, description: "变更字段名列表(创建基线为 __create__)" }
+        createTime: { type: string, format: date-time }
+        createBy: { type: string }
+    PopulationHisPage:
+      type: object
+      properties:
+        records:
+          type: array
+          items: { $ref: '#/components/schemas/PopulationHis' }
+        total: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        current: { type: integer, format: int64 }
+        pages: { type: integer, format: int64 }
