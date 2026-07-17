@@ -17,8 +17,8 @@
 | community-welfare | 社区公益(资助/助农/法援,**空壳**) | com.measure.community.welfare | 9097 |
 | community-affairs | 居务管理(活动/工单/随手拍/场地/工具/资讯,**空壳**) | com.measure.community.affairs | 9098 |
 
-> 范围以 `开发计划7.13(1).xlsx`「阶段1」为准(docx 作补充),**不含三级驾驶舱**。空壳模块含 `/api/v1/{域}/ping` 占位,业务按 community-info 样板逐个填。
-> 移动端(Taro/RN 前端)、AI 智能体(FastAPI)为独立工程,不在本仓库。
+> 范围以 `开发计划7.13(1).xlsx`「阶段1」为准(docx 作补充),**不含三级驾驶舱和所有 AI 能力**；后端需求边界和追踪规则以[后端需求基线](docs/requirements/backend-requirements.md)为准，优先于早期骨架文档的范围说明。空壳模块含 `/api/v1/{域}/ping` 占位,业务按 community-info 样板逐个填。
+> 移动端(Taro/RN)前端为独立工程；AI 能力完全不在本仓库实现，也不创建或对接 FastAPI 服务。
 
 ## 环境准备
 JDK 17+、Maven 3.8+、Nacos 2.x(必须)、MySQL 8、Redis。
