@@ -54,8 +54,8 @@ common 里的 bean（`RetObj`、`GlobalExceptionHandler`、`RequestHeaderFilter`
 
 ### 敏感字段：AES 密文列 + HMAC 盲索引
 人口证件号等敏感字段的存储模式（见 `Population` 实体、`AesTypeHandler`、`HmacUtil`、schema 注释「§5」）：
-- 明文列用 `@TableField(typeHandler = AesTypeHandler.class)` 落库为 AES 密文。**`AesTypeHandler` 当前是直通占位（encrypt/decrypt 原样返回），待接入 KMS**。
-- 密文列无法 `LIKE`/等值查询，因此额外存一个 `id_card_hmac`(HMAC 盲索引) 列做唯一约束与精确匹配。查询证件号走 `HmacUtil.blindIndex(...)` 等值匹配，不要对密文列做 wrapper 条件。
+- 明文列用 `@TableField(typeHandler = AesTypeHandler.class)` 落库为 AES-256-GCM 密文（随机 12 字节 IV 与密文拼接后 Base64）；读取时由 `SensitiveCrypto` 解密。AES 密钥通过 `sensitive.aes-key` 注入，未配置时仅为离线测试回退开发密钥，生产必须配置。
+- 密文列无法 `LIKE`/等值查询，因此额外存一个 `id_card_hmac`(HMAC-SHA256 盲索引) 列做唯一约束与精确匹配。查询证件号走 `HmacUtil.blindIndex(...)` 等值匹配，不要对密文列做 wrapper 条件；HMAC 密钥通过 `sensitive.hmac-key` 注入。后续接 KMS 时替换 `SensitiveCrypto.configure(...)` 的密钥来源，不改 TypeHandler 或业务调用方。
 
 ### 数据访问约定
 - MyBatis-Plus，Service 继承 `ServiceImpl<Mapper, Entity>`，Mapper 继承 `BaseMapper`。
