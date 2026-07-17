@@ -2,6 +2,7 @@ package com.measure.community.info.controller;
 
 import com.measure.community.common.model.RetObj;
 import com.measure.community.info.api.model.PopulationCreateReqDto;
+import com.measure.community.info.api.model.PopulationVersionUpdateReqDto;
 import com.measure.community.info.model.req.PopulationQueryReq;
 import com.measure.community.info.service.PopulationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,5 +31,20 @@ public class PopulationController {
     @PostMapping("/persons")
     public RetObj createPerson(@Valid @RequestBody PopulationCreateReqDto req) {
         return RetObj.success(populationService.createPerson(req));
+    }
+
+    @Operation(summary = "人口信息版本更新(仅追加,不可删除/覆盖)")
+    @PostMapping("/persons/{id}/versions")
+    public RetObj updatePersonVersion(@PathVariable Long id,
+                                      @Valid @RequestBody PopulationVersionUpdateReqDto req) {
+        return RetObj.success(populationService.updateVersion(id, req));
+    }
+
+    @Operation(summary = "人口变更历史查询")
+    @GetMapping("/persons/{id}/versions")
+    public RetObj listPersonVersions(@PathVariable Long id,
+                                     @RequestParam(defaultValue = "1") long page,
+                                     @RequestParam(defaultValue = "10") long size) {
+        return RetObj.success(populationService.listVersions(id, page, size));
     }
 }

@@ -4,7 +4,9 @@ import com.measure.community.common.enums.SystemStatus;
 import com.measure.community.common.exception.BizException;
 import com.measure.community.common.exception.GlobalExceptionHandler;
 import com.measure.community.info.api.model.PopulationCreateReqDto;
+import com.measure.community.info.api.model.PopulationHisPageDto;
 import com.measure.community.info.api.model.PopulationPageDto;
+import com.measure.community.info.api.model.PopulationVersionUpdateReqDto;
 import com.measure.community.info.model.req.PopulationQueryReq;
 import com.measure.community.info.service.PopulationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +20,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -72,5 +76,38 @@ class PopulationControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(20004))
                 .andExpect(jsonPath("$.message").value("该证件号已存在"));
+    }
+
+    @Test
+    void updatePersonVersion_returnsNewVersion() throws Exception {
+        when(populationService.updateVersion(eq(1L), any(PopulationVersionUpdateReqDto.class)))
+                .thenReturn(2);
+        mockMvc.perform(post("/api/v1/population/persons/1/versions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"李四\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data").value(2));
+    }
+
+    @Test
+    void updatePersonVersion_notFound_returns404() throws Exception {
+        when(populationService.updateVersion(eq(9L), any(PopulationVersionUpdateReqDto.class)))
+                .thenThrow(new BizException(SystemStatus.NOT_FOUND, "人口档案不存在"));
+        mockMvc.perform(post("/api/v1/population/persons/9/versions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"李四\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(20002))
+                .andExpect(jsonPath("$.message").value("人口档案不存在"));
+    }
+
+    @Test
+    void listPersonVersions_returnsOk() throws Exception {
+        when(populationService.listVersions(anyLong(), anyLong(), anyLong()))
+                .thenReturn(new PopulationHisPageDto());
+        mockMvc.perform(get("/api/v1/population/persons/1/versions").param("page", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
     }
 }

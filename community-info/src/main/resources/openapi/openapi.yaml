@@ -68,8 +68,66 @@ paths:
                   data: { type: integer, format: int64, description: 人口档案ID }
         '400':
           description: 证件号为空
-        '500':
+        '409':
           description: 证件号已存在
+  /api/v1/population/persons/{id}/versions:
+    post:
+      tags: [人口信息]
+      summary: 人口信息版本更新(仅追加,不可删除/覆盖,留存历史)
+      operationId: updatePersonVersion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PopulationVersionUpdateReq' }
+      responses:
+        '200':
+          description: 更新成功,data 为新版本号
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: integer, description: 新版本号 }
+        '404':
+          description: 人口档案不存在
+        '409':
+          description: 版本冲突(并发更新)
+    get:
+      tags: [人口信息]
+      summary: 人口变更历史查询
+      operationId: listPersonVersions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/PopulationHisPage' }
+        '404':
+          description: 人口档案不存在
 components:
   securitySchemes:
     bearerAuth:
@@ -109,6 +167,37 @@ components:
         records:
           type: array
           items: { $ref: '#/components/schemas/Population' }
+        total: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        current: { type: integer, format: int64 }
+        pages: { type: integer, format: int64 }
+    PopulationVersionUpdateReq:
+      type: object
+      description: 可变更字段(证件号不可改)。仅传需变更的字段。
+      properties:
+        type: { type: string, enum: [户籍, 常住, 流动] }
+        name: { type: string, maxLength: 64 }
+        gender: { type: string }
+        phone: { type: string }
+        insuredStatus: { type: string }
+        employmentStatus: { type: string }
+    PopulationHis:
+      type: object
+      description: 人口变更历史项(快照证件号脱敏)
+      properties:
+        id: { type: integer, format: int64 }
+        populationId: { type: integer, format: int64 }
+        version: { type: integer }
+        snapshot: { type: string, description: "该版本业务快照(JSON,已脱敏)" }
+        changedField: { type: string, description: "变更字段名列表(创建基线为 __create__)" }
+        createTime: { type: string, format: date-time }
+        createBy: { type: string }
+    PopulationHisPage:
+      type: object
+      properties:
+        records:
+          type: array
+          items: { $ref: '#/components/schemas/PopulationHis' }
         total: { type: integer, format: int64 }
         size: { type: integer, format: int64 }
         current: { type: integer, format: int64 }

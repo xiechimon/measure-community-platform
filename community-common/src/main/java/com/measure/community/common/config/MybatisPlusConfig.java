@@ -3,6 +3,7 @@ package com.measure.community.common.config;
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.measure.community.common.utils.UserContextHolder;
 import org.apache.ibatis.reflection.MetaObject;
@@ -24,6 +25,9 @@ public class MybatisPlusConfig implements MetaObjectHandler {
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+        // 乐观锁插件:实体带 @Version 的更新会自动 version+1 并加 WHERE version=旧值
+        // (须置于分页插件之前)。用于人口版本更新等并发安全场景。
+        interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         // 添加分页插件 (设置数据库类型为 MySQL)
         // 如果不加这个，调用 mapper.selectPage 会导致全表查询，并且 Page 对象的 total 属性查不出来
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));

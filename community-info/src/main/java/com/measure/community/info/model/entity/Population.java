@@ -25,6 +25,8 @@ public class Population {
     private String insuredStatus;
     @TableField("employment_status")
     private String employmentStatus;
+    /** 乐观锁版本号,由 OptimisticLockerInnerInterceptor 在更新时自增 */
+    @Version
     private Integer version;
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
