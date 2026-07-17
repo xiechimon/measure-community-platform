@@ -1,0 +1,75 @@
+# 本地依赖栈:Nacos(注册/配置)+ MySQL(业务库,自动建表)+ Redis(会话/token)
+# 用法:
+#   docker compose up -d          # 起三个依赖
+#   docker compose ps             # 看健康状态
+#   docker compose down           # 停(保留数据卷)
+#   docker compose down -v        # 停并清数据
+# 起来后仍需:① Nacos 建命名空间 74193cd9-fac4-4f2a-addc-47c60508b15c
+#             ② 导入 doc/*.yaml 到该命名空间(见 README/ROADMAP)
+# 之后在宿主机跑:mvn -pl community-gateway spring-boot:run / mvn -pl community-info -am spring-boot:run
+
+name: measure-community
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mc-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mc-mysql-data:/var/lib/mysql
+      # 首次初始化时按文件名顺序执行:01 建人口表、02 建 RBAC 表+种子
+      - ./database/mysql:/docker-entrypoint-initdb.d:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: mc-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - mc-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: mc-nacos
+    restart: unless-stopped
+    environment:
+      MODE: standalone            # 单机模式,内嵌 Derby,无需额外 DB
+      NACOS_AUTH_ENABLE: "true"   # 应用以 nacos/nacos 连接(见各模块 application.yml 默认值)
+      # 2.2+ 开启鉴权必须提供以下三项,否则启动失败;控制台登录仍为 nacos/nacos
+      NACOS_AUTH_TOKEN: VGhpc0lzTXlDdXN0b21TZWNyZXRLZXkwMTIzNDU2Nzg=
+      NACOS_AUTH_IDENTITY_KEY: serverIdentity
+      NACOS_AUTH_IDENTITY_VALUE: security
+      JVM_XMS: 256m
+      JVM_XMX: 512m
+    ports:
+      - "127.0.0.1:8848:8848"     # 主端口 / 控制台
+      - "127.0.0.1:9848:9848"     # 2.x gRPC(客户端必需)
+    volumes:
+      - mc-nacos-data:/home/nacos/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8848/nacos/v1/console/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mc-mysql-data:
+  mc-redis-data:
+  mc-nacos-data:

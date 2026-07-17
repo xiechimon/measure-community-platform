@@ -39,3 +39,6 @@ logs/
 
 ### 文档编辑器临时锁文件(LibreOffice/WPS)###
 .~lock.*#
+
+### Codex/Superpowers 本地执行记录 ###
+.superpowers/
