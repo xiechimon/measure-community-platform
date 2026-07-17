@@ -47,7 +47,7 @@ common 里的 bean（`RetObj`、`GlobalExceptionHandler`、`RequestHeaderFilter`
 
 ### 网关↔服务的内部鉴权握手（跨 gateway + common）
 这是最容易踩坑的横切逻辑，分布在两个模块：
-1. **网关** `AuthFilter`(order=-100)：校验 Redis 中 `alibaba-token:<token>`，然后给下游请求注入三个头——`X-Internal-Auth: expected-secret`、`X-UserInfo`(用户 JSON 的 Base64)、`traceId`。白名单 `EXCLUDE_PATH_LIST` 含 `/api/v1/population`（样板模块免登录，方便验证）与 `/community-auth/user/login`、swagger 路径。
+1. **网关** `AuthFilter`(order=-100)：校验 Redis 中 `alibaba-token:<token>`，然后给下游请求注入三个头——`X-Internal-Auth: expected-secret`、`X-UserInfo`(用户 JSON 的 Base64)、`traceId`。白名单 `EXCLUDE_PATH_LIST` 含 `/api/v1/population`（样板模块免登录，方便验证）与 `/api/v1/auth/login`、swagger 路径。
 2. **各业务服务** `RequestHeaderFilter`(common)：校验 `X-Internal-Auth` == `expected-secret`，不匹配直接 403（**禁止绕过网关直连**）；再把 `X-UserInfo` 解码进 `UserContextHolder`(ThreadLocal) 和 MDC。
 - 密钥常量目前硬编码在两处：`AuthFilter.SECRET_KEY` 与 `CommonConstant.SECRET_KEY`（均为 `expected-secret`）。改动务必同步。
 - `UserContextHolder` 是 ThreadLocal，`RequestHeaderFilter` 在 finally 里 clear，新增手动开线程/异步时要自行传递。

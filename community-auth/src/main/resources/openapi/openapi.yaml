@@ -9,7 +9,7 @@ servers:
 tags:
   - name: 鉴权
 paths:
-  /community-auth/user/login:
+  /api/v1/auth/login:
     post:
       tags: [鉴权]
       summary: 登录(免鉴权白名单)

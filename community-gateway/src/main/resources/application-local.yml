@@ -30,13 +30,7 @@ spring:
         - id: community-auth
           uri: lb://community-auth
           predicates:
-            - Path=/community-auth/**
-          filters:
-            - StripPrefix=1
-        - id: community-auth-docs
-          uri: lb://community-auth
-          predicates:
-            - Path=/community-auth/v3/api-docs
+            - Path=/api/v1/auth/**
     loadbalancer: #开启负载均衡
       nacos:
         enabled: true
@@ -48,8 +42,8 @@ springdoc:
     urls:
       - name: 信息服务
         url: /api/v1/population/v3/api-docs
-      - name: 用户服务
-        url: /community-auth/v3/api-docs
+      - name: 系统配置/鉴权
+        url: /api/v1/auth/v3/api-docs
 
 global:
   switch:

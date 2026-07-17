@@ -34,7 +34,7 @@ import java.util.*;
 @Component
 public class AuthFilter implements GlobalFilter, Ordered {
 
-    private static final List<String> EXCLUDE_PATH_LIST = List.of("/community-auth/user/login", "/api/v1/population");
+    private static final List<String> EXCLUDE_PATH_LIST = List.of("/api/v1/auth/login", "/api/v1/population");
     private static final String SECRET_KEY = "expected-secret";
     private static final String TRACE_ID_HEADER = "traceId";
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
