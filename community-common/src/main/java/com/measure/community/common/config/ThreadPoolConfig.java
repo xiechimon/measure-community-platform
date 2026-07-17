@@ -10,7 +10,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 线程池配置
- * 核心：注入 MdcTaskDecorator 实现分布式链路追踪 ID 在多线程间的透传
+ * 核心：注入 ContextTaskDecorator 实现分布式链路追踪 ID 在多线程间的透传
  */
 @Configuration
 @EnableAsync
@@ -32,7 +32,7 @@ public class ThreadPoolConfig {
         executor.setThreadNamePrefix("async-xf-");
 
         // --- 核心重点：配置装饰器，实现 MDC 透传 ---
-        executor.setTaskDecorator(new MdcTaskDecorator());
+        executor.setTaskDecorator(new ContextTaskDecorator());
 
         // 6. 拒绝策略：由主线程执行，防止任务丢失
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
