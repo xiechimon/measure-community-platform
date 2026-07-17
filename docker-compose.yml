@@ -56,13 +56,17 @@ services:
       NACOS_AUTH_TOKEN: VGhpc0lzTXlDdXN0b21TZWNyZXRLZXkwMTIzNDU2Nzg=
       NACOS_AUTH_IDENTITY_KEY: serverIdentity
       NACOS_AUTH_IDENTITY_VALUE: security
-      JVM_XMS: 256m
-      JVM_XMX: 512m
+      # 单机内嵌 Derby:堆给足 + 显式收窄新生代,否则 Xmn==Xmx 导致老年代≈0,
+      # 首次建库触发狂刷 Full GC → 拖过 Derby 30s 登录超时 → 建库夭折留下半成品目录
+      JVM_XMS: 512m
+      JVM_XMX: 1024m
+      JVM_XMN: 256m
     ports:
       - "127.0.0.1:8848:8848"     # 主端口 / 控制台
       - "127.0.0.1:9848:9848"     # 2.x gRPC(客户端必需)
     volumes:
-      - mc-nacos-data:/home/nacos/data
+      # v2:换新卷,绕开旧卷里那份建库夭折的残缺 Derby(旧卷 mc-nacos-data 弃用即可,无需删除)
+      - mc-nacos-data-v2:/home/nacos/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8848/nacos/v1/console/health/readiness"]
       interval: 10s
@@ -72,4 +76,4 @@ services:
 volumes:
   mc-mysql-data:
   mc-redis-data:
-  mc-nacos-data:
+  mc-nacos-data-v2:
