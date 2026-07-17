@@ -1,7 +1,9 @@
 package com.measure.community.common.utils;
 
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * UserContextHolder
@@ -9,11 +11,14 @@ import java.util.Map;
  * @author 海言
  * @date 2025/9/5
  * @time 15:57
- * @Description 请求头工具类
+ * @Description 请求上下文:承载网关下发的用户身份与权限(角色/权限点),供审计与功能级鉴权使用。
  */
 public class UserContextHolder {
 
     private static final ThreadLocal<Map<String, String>> context = new ThreadLocal<>();
+    private static final ThreadLocal<Set<String>> roles = new ThreadLocal<>();
+    private static final ThreadLocal<Set<String>> permissions = new ThreadLocal<>();
+
     // 设置用户信息
     public static void set(Map<String, String> userInfo) {
         context.set(userInfo);
@@ -33,9 +38,35 @@ public class UserContextHolder {
         Map<String, String> userInfo = context.get();
         return userInfo != null ? userInfo.get("name") : null;
     }
-    // 清理
+
+    // ---- 角色 / 权限(RBAC,§6)----
+    public static void setRoles(Set<String> r) {
+        roles.set(r);
+    }
+
+    public static Set<String> getRoles() {
+        Set<String> r = roles.get();
+        return r != null ? r : Collections.emptySet();
+    }
+
+    public static void setPermissions(Set<String> p) {
+        permissions.set(p);
+    }
+
+    public static Set<String> getPermissions() {
+        Set<String> p = permissions.get();
+        return p != null ? p : Collections.emptySet();
+    }
+
+    public static boolean hasPermission(String code) {
+        return getPermissions().contains(code);
+    }
+
+    // 清理(过滤器 finally 必须调用,防止 ThreadLocal 泄漏)
     public static void clear() {
         context.remove();
+        roles.remove();
+        permissions.remove();
     }
 
 }

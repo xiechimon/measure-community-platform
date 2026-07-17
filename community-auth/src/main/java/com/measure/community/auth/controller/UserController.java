@@ -1,5 +1,6 @@
 package com.measure.community.auth.controller;
 
+import com.measure.community.common.annotation.RequiresPermission;
 import com.measure.community.common.utils.UserContextHolder;
 import com.measure.community.common.model.RetObj;
 import com.measure.community.auth.model.req.LoginInfoReq;
@@ -39,6 +40,7 @@ public class UserController {
      * @return
      */
     @Operation(summary = "获取登录用户名称")
+    @RequiresPermission("system:user:query")
     @GetMapping("/getUserName")
     public RetObj getUserName(){
         return RetObj.success(UserContextHolder.getName());

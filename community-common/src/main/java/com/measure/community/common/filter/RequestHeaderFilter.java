@@ -65,10 +65,20 @@ public class RequestHeaderFilter implements Filter {
         if(StringUtils.hasText(userBase64)){
             //用户信息转码
             String userJson = new String(Base64.getDecoder().decode(userBase64), StandardCharsets.UTF_8);
-            Map<String, String> map = JSON.parseObject(userJson, new TypeReference<>() {});
+            com.alibaba.fastjson.JSONObject obj = JSON.parseObject(userJson);
+            // 标量字段进 Map(id/name/account/phone 等),数组字段(roles/permissions)另存
+            Map<String, String> map = new java.util.HashMap<>();
+            for (Map.Entry<String, Object> e : obj.entrySet()) {
+                Object v = e.getValue();
+                if (v != null && !(v instanceof java.util.Collection)) {
+                    map.put(e.getKey(), String.valueOf(v));
+                }
+            }
             //将用户信息设置到自定义context中
             UserContextHolder.set(map);
-            
+            UserContextHolder.setRoles(toStringSet(obj.getJSONArray("roles")));
+            UserContextHolder.setPermissions(toStringSet(obj.getJSONArray("permissions")));
+
             userId = map.get("id");
             if (StringUtils.hasText(userId)) {
                 MDC.put("userId", userId);
@@ -89,5 +99,17 @@ public class RequestHeaderFilter implements Filter {
                 MDC.remove("userId");
             }
         }
+    }
+
+    private static java.util.Set<String> toStringSet(com.alibaba.fastjson.JSONArray arr) {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        if (arr != null) {
+            for (Object o : arr) {
+                if (o != null) {
+                    set.add(String.valueOf(o));
+                }
+            }
+        }
+        return set;
     }
 }

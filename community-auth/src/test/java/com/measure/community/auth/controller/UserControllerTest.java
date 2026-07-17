@@ -43,7 +43,7 @@ class UserControllerTest {
     @Test
     void login_success_returnsTokenData() throws Exception {
         LoginUser lu = new LoginUser();
-        lu.setId(1);
+        lu.setId(1L);
         lu.setAccount("admin");
         lu.setName("管理员");
         lu.setToken("tk-123");
