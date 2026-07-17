@@ -29,6 +29,7 @@
         <rocketmq.boot.version>2.3.4</rocketmq.boot.version>
         <rocketmq.version>5.3.0</rocketmq.version>
         <logstash.logback.encoder.version>6.6</logstash.logback.encoder.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
     <modules>
         <module>community-gateway</module>
@@ -39,6 +40,7 @@
         <module>community-service</module>
         <module>community-welfare</module>
         <module>community-affairs</module>
+        <module>community-integration-tests</module>
     </modules>
 
     <dependencyManagement>
@@ -166,6 +168,30 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>${flyway.version}</version>
+                <configuration>
+                    <locations>
+                        <location>filesystem:${maven.multiModuleProjectDirectory}/database/mysql/migration</location>
+                    </locations>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.flywaydb</groupId>
+                        <artifactId>flyway-mysql</artifactId>
+                        <version>${flyway.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.mysql</groupId>
+                        <artifactId>mysql-connector-j</artifactId>
+                        <version>${mysql.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+        </plugins>
     </build>
 
 </project>

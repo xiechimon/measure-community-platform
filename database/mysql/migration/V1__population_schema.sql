@@ -1,7 +1,4 @@
 -- 数智化社区服务平台 骨架样板建表脚本
-CREATE DATABASE IF NOT EXISTS measure_community DEFAULT CHARACTER SET utf8mb4;
-USE measure_community;
-
 CREATE TABLE IF NOT EXISTS t_population (
   id                BIGINT       NOT NULL COMMENT '人口档案ID',
   type              VARCHAR(16)  NOT NULL COMMENT '类型:户籍/常住/流动',

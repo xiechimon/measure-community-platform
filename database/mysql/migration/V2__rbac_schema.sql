@@ -1,6 +1,5 @@
 -- 数智化社区服务平台 RBAC 权限体系(P2a,见说明书§6)
 -- 建在 measure_community,收敛脚手架遗留的 xf-boot-base.xf_user
-USE measure_community;
 
 -- 用户
 CREATE TABLE IF NOT EXISTS sys_user (
@@ -62,11 +61,11 @@ CREATE TABLE IF NOT EXISTS sys_role_permission (
   PRIMARY KEY (role_id, permission_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色权限关联';
 
--- ============ 种子数据:超级管理员 ============
--- 密码 BCrypt('123456');强度10。若哈希失效,可用应用侧 BCryptPasswordEncoder 重新生成。
+-- ============ 种子数据:超级管理员 ==========
+-- 密码 BCrypt('123456');强度10。
 INSERT INTO sys_user (id, username, password, name, status)
-VALUES (1, 'admin', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5nQ0Q1yQ8Wq3n1oQY6kQ0m8v2b9K', '超级管理员', 1)
-ON DUPLICATE KEY UPDATE username = username;
+VALUES (1, 'admin', '$2a$10$rn3VmUnv6QROpXGO9sn17ufP0CdxGDSnTYp0vNZ9Qj3Jn4uwo4T1O', '超级管理员', 1)
+ON DUPLICATE KEY UPDATE username = VALUES(username);
 
 INSERT INTO sys_role (id, code, name, data_scope)
 VALUES (1, 'admin', '超级管理员', 'ALL')
