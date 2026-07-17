@@ -2,6 +2,8 @@ package com.measure.community.common.crypto;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -18,12 +20,22 @@ public class SensitiveCryptoInitializer {
 
     public SensitiveCryptoInitializer(
             @Value("${sensitive.aes-key:}") String aesKeyB64,
-            @Value("${sensitive.hmac-key:}") String hmacKeyB64) {
+            @Value("${sensitive.hmac-key:}") String hmacKeyB64,
+            Environment environment) {
+        if (isProduction(environment)
+                && (!StringUtils.hasText(aesKeyB64) || !StringUtils.hasText(hmacKeyB64))) {
+            throw new IllegalStateException(
+                    "生产环境必须完整配置 sensitive.aes-key 和 sensitive.hmac-key");
+        }
         byte[] aes = StringUtils.hasText(aesKeyB64) ? Base64.getDecoder().decode(aesKeyB64) : null;
         byte[] hmac = StringUtils.hasText(hmacKeyB64) ? Base64.getDecoder().decode(hmacKeyB64) : null;
         SensitiveCrypto.configure(aes, hmac);
         if (aes == null || hmac == null) {
             log.warn("敏感字段密钥未完整配置(sensitive.aes-key/hmac-key),使用开发默认密钥;生产环境请务必经 Nacos 注入!");
         }
+    }
+
+    private static boolean isProduction(Environment environment) {
+        return environment.acceptsProfiles(Profiles.of("prod"));
     }
 }
