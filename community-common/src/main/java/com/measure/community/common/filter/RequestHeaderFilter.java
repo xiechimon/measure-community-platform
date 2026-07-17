@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -33,6 +34,15 @@ import java.util.Map;
 @Slf4j
 public class RequestHeaderFilter implements Filter {
 
+    private final String internalSecret;
+
+    public RequestHeaderFilter(@Value("${security.internal.secret}") String internalSecret) {
+        if (!StringUtils.hasText(internalSecret)) {
+            throw new IllegalStateException("必须配置 security.internal.secret");
+        }
+        this.internalSecret = internalSecret;
+    }
+
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         HttpServletRequest req = (HttpServletRequest) request;
@@ -51,7 +61,7 @@ public class RequestHeaderFilter implements Filter {
         
         // 2. 网关防刷校验
         String header = req.getHeader(CommonConstant.X_INTERNAL_AUTH);
-        if (!CommonConstant.SECRET_KEY.equals(header)) {
+        if (!internalSecret.equals(header)) {
             log.warn("非法访问接口，禁止绕过网关访问: {}", uri);
             com.measure.community.common.utils.ResponseWriter.writeError(
                     (jakarta.servlet.http.HttpServletResponse) response,

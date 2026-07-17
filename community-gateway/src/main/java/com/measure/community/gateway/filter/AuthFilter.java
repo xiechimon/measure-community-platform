@@ -8,6 +8,7 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -35,9 +36,17 @@ import java.util.*;
 public class AuthFilter implements GlobalFilter, Ordered {
 
     private static final List<String> EXCLUDE_PATH_LIST = List.of("/api/v1/auth/login", "/api/v1/population");
-    private static final String SECRET_KEY = "expected-secret";
     private static final String TRACE_ID_HEADER = "traceId";
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    private final String internalSecret;
+
+    public AuthFilter(@Value("${security.internal.secret}") String internalSecret) {
+        if (!StringUtils.hasText(internalSecret)) {
+            throw new IllegalStateException("必须配置 security.internal.secret");
+        }
+        this.internalSecret = internalSecret;
+    }
 
     @Resource
     private RedisTemplate redisTemplate;
@@ -81,7 +90,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
 
         // 3. 封装请求修改逻辑（标准 WebFlux 做法）
         ServerHttpRequest.Builder requestBuilder = decoratedRequest.mutate()
-                .header("X-Internal-Auth", SECRET_KEY)
+                .header("X-Internal-Auth", internalSecret)
                 .header(TRACE_ID_HEADER, traceId);
 
         // --- 1. 白名单逻辑 ---

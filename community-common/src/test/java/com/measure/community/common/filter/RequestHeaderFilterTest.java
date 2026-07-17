@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RequestHeaderFilterTest {
 
@@ -40,7 +41,7 @@ class RequestHeaderFilterTest {
     @BeforeEach
     void setup() {
         mockMvc = MockMvcBuilders.standaloneSetup(new PingController())
-                .addFilters(new RequestHeaderFilter())
+                .addFilters(new RequestHeaderFilter("unit-test-internal-secret"))
                 .build();
     }
 
@@ -54,7 +55,7 @@ class RequestHeaderFilterTest {
     @Test
     void correctInternalAuth_passesThrough() throws Exception {
         mockMvc.perform(get("/ping")
-                        .header(CommonConstant.X_INTERNAL_AUTH, CommonConstant.SECRET_KEY))
+                        .header(CommonConstant.X_INTERNAL_AUTH, "unit-test-internal-secret"))
                 .andExpect(status().isOk());
     }
 
@@ -66,10 +67,25 @@ class RequestHeaderFilterTest {
         String b64 = Base64.getEncoder().encodeToString(userJson.getBytes(StandardCharsets.UTF_8));
 
         mockMvc.perform(get("/whoami")
-                        .header(CommonConstant.X_INTERNAL_AUTH, CommonConstant.SECRET_KEY)
+                        .header(CommonConstant.X_INTERNAL_AUTH, "unit-test-internal-secret")
                         .header(CommonConstant.X_USERINFO, b64))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("system:user:query")))
                 .andExpect(content().string(containsString("roles=admin")));
+    }
+
+    @Test
+    void wrongConfiguredSecretReturns403() throws Exception {
+        RequestHeaderFilter filter = new RequestHeaderFilter("configured-secret");
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new PingController())
+                .addFilters(filter).build();
+
+        mvc.perform(get("/ping").header(CommonConstant.X_INTERNAL_AUTH, "different-secret"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void blankConfiguredSecretFailsFast() {
+        assertThrows(IllegalStateException.class, () -> new RequestHeaderFilter(" "));
     }
 }

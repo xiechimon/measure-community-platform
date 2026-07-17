@@ -18,6 +18,7 @@ import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -40,7 +41,7 @@ class AuthFilterTest {
     @SuppressWarnings("unchecked")
     @BeforeEach
     void setup() {
-        filter = new AuthFilter();
+        filter = new AuthFilter("unit-test-internal-secret");
         chain = mock(GatewayFilterChain.class);
         redisTemplate = mock(RedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
@@ -51,13 +52,14 @@ class AuthFilterTest {
     @Test
     void whiteListPath_passesThrough_andInjectsInternalAuth() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/api/v1/auth/login"));
+                MockServerHttpRequest.get("/api/v1/auth/login")
+                        .header("X-Internal-Auth", "client-supplied-secret"));
 
         filter.filter(exchange, chain).block();
 
         ArgumentCaptor<ServerWebExchange> cap = ArgumentCaptor.forClass(ServerWebExchange.class);
         verify(chain).filter(cap.capture());
-        assertEquals("expected-secret",
+        assertEquals("unit-test-internal-secret",
                 cap.getValue().getRequest().getHeaders().getFirst("X-Internal-Auth"));
     }
 
@@ -90,7 +92,7 @@ class AuthFilterTest {
         ArgumentCaptor<ServerWebExchange> cap = ArgumentCaptor.forClass(ServerWebExchange.class);
         verify(chain).filter(cap.capture());
         HttpHeaders h = cap.getValue().getRequest().getHeaders();
-        assertEquals("expected-secret", h.getFirst("X-Internal-Auth"));
+        assertEquals("unit-test-internal-secret", h.getFirst("X-Internal-Auth"));
         String userInfoB64 = h.getFirst("X-UserInfo");
         assertNotNull(userInfoB64);
         assertTrue(new String(Base64.getDecoder().decode(userInfoB64)).contains("Tom"));
@@ -114,5 +116,10 @@ class AuthFilterTest {
     @Test
     void order_isMinus100() {
         assertEquals(-100, filter.getOrder());
+    }
+
+    @Test
+    void blankConfiguredSecretFailsFast() {
+        assertThrows(IllegalStateException.class, () -> new AuthFilter(" "));
     }
 }

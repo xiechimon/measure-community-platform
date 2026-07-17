@@ -7,6 +7,7 @@ import feign.RequestTemplate;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -25,10 +26,20 @@ import com.alibaba.fastjson2.JSON;
 @Configuration
 public class FeignConfig implements RequestInterceptor {
 
+    private final String internalSecret;
+
+    public FeignConfig(@Value("${security.internal.secret}") String internalSecret) {
+        if (!StringUtils.hasText(internalSecret)) {
+            throw new IllegalStateException("必须配置 security.internal.secret");
+        }
+        this.internalSecret = internalSecret;
+    }
+
     @Override
     public void apply(RequestTemplate template) {
         // 1. 设置内部调用密钥，防止绕过网关
-        template.header(CommonConstant.X_INTERNAL_AUTH, CommonConstant.SECRET_KEY);
+        template.removeHeader(CommonConstant.X_INTERNAL_AUTH);
+        template.header(CommonConstant.X_INTERNAL_AUTH, internalSecret);
 
         // 2. 传递用户信息 (如果有)
         Map<String, String> userInfo = UserContextHolder.get();
