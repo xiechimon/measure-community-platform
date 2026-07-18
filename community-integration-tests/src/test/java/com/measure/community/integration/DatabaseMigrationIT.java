@@ -15,7 +15,7 @@ class DatabaseMigrationIT extends MySqlIntegrationSupport {
     void emptyDatabaseMigratesOnceAndAdminCanAuthenticate() throws Exception {
         flyway.clean();
 
-        assertEquals(2, flyway.migrate().migrationsExecuted);
+        assertEquals(3, flyway.migrate().migrationsExecuted);
 
         try (Connection connection = DriverManager.getConnection(
                 MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword())) {

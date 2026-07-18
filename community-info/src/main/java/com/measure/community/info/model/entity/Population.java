@@ -36,4 +36,10 @@ public class Population {
     private String createBy;
     @TableField(value = "update_by", fill = FieldFill.INSERT_UPDATE)
     private String updateBy;
+    /** 所属组织ID(数据范围) */
+    @TableField("org_id")
+    private Long orgId;
+    /** 所属网格ID(数据范围) */
+    @TableField("grid_id")
+    private Long gridId;
 }
