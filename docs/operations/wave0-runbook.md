@@ -41,11 +41,11 @@ docker compose up -d --wait mysql redis nacos
 
 ```bash
 mvn -N flyway:migrate \
-  -Dflyway.url=jdbc:mysql://127.0.0.1:3306/measure_community \
+  -Dflyway.url="jdbc:mysql://127.0.0.1:${MYSQL_HOST_PORT:-3306}/measure_community" \
   -Dflyway.user=root -Dflyway.password="$MYSQL_ROOT_PASSWORD"
 ```
 
-迁移脚本位于 `database/mysql/migration/`(`V1__population_schema.sql`、`V2__rbac_schema.sql`)，由父 `pom.xml` 的 Flyway Maven plugin 驱动。**已知限制**：这条命令硬编码 `127.0.0.1:3306`，不会读 `.env` 里的 `MYSQL_HOST_PORT` 覆盖值——如果本机原生 MySQL 已经占用 3306，必须先停掉它(见第 9 节"常见失败")，而不是指望改端口就能绕开这一步。
+迁移脚本位于 `database/mysql/migration/`(`V1__population_schema.sql`、`V2__rbac_schema.sql`)，由父 `pom.xml` 的 Flyway Maven plugin 驱动。迁移端口**跟随 `.env` 的 `MYSQL_HOST_PORT` 覆盖**(默认 3306)，与 compose 和冒烟脚本一致：本机原生 MySQL 已占用 3306 时，把 `MYSQL_HOST_PORT` 覆盖成空闲端口即可与其共存，flyway 会连到 compose 容器而非 native 库(不再需要先停 native MySQL)。
 
 如需在不修改的前提下核对迁移状态，可将 `flyway:migrate` 换成 `flyway:info` 或 `flyway:validate`(同样的 `-Dflyway.url/user/password` 参数)。
 
@@ -111,7 +111,7 @@ Wave 0 verification: PASS
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
 | `docker compose up` 时 MySQL/Redis/Nacos 端口绑定失败 | 宿主机默认端口(3306/6379/8848/9848/9090/9093/9094)已被其他进程占用 | 在 `.env` 里设置对应的 `*_HOST_PORT` 覆盖为空闲端口；`scripts/e2e/wave0-smoke.sh --setup` 默认让 Docker 动态分配端口(`*_HOST_PORT=0`)可以完全规避这个问题 |
-| Flyway `migrate` 连接失败或连到了错误的库 | `scripts/ci/verify.sh` 和第 4 节手工命令里的 `-Dflyway.url` **硬编码 `127.0.0.1:3306`**，不跟随 `.env` 的 `MYSQL_HOST_PORT` 覆盖 | 若本机已有原生(非容器)MySQL 监听 3306，必须先停掉它(`brew services stop mysql` 或等价命令)，让 compose 容器独占 3306；这是已知的 Wave 0 遗留项，后续应让 flyway 步骤读取 `MYSQL_HOST_PORT` |
+| Flyway `migrate` 连接失败或连到了错误的库 | 本机原生 MySQL 占用 3306，且未覆盖 `MYSQL_HOST_PORT`(compose MySQL 因此起不来或与 native 争 3306) | flyway 端口现已跟随 `MYSQL_HOST_PORT`(`scripts/ci/verify.sh` 与第 4 节命令一致)：在 `.env` 里把 `MYSQL_HOST_PORT` 覆盖成空闲端口，compose MySQL 与 flyway 都用该端口，可与 native MySQL 共存；或先 `brew services stop mysql` 让 compose 独占 3306 |
 | 多个开发者/多次运行互相冲突(容器名、网络名、卷冲突) | Compose 项目名默认固定为 `measure-community`(`docker-compose.yml` 的顶层 `name:`) | 设置 `COMPOSE_PROJECT_NAME` 为唯一值；`scripts/ci/verify.sh` 的 Capacity gate 会按 `${COMPOSE_PROJECT_NAME:-measure-community}_default` 拼网络名，覆盖项要保持一致，否则 k6 容器加入不了正确的 Docker 网络 |
 | Nacos 容器反复重启或建库失败 | 单机 Derby 首次建库时如果堆配置不当会触发 Full GC 风暴，超过 30s 登录超时 | 保持 `docker-compose.yml` 里的 `JVM_XMS/XMX/XMN` 设置不变；不要清空 `mc-nacos-data-v2` 卷后又用过小的 JVM 参数重建 |
 | `scripts/nacos/bootstrap.sh` 报 "missing Nacos environment file" | 显式设置了 `NACOS_ENV_FILE` 但指向的文件不存在 | 确认路径正确，或不设置该变量让脚本回退到 `$ROOT/.env` |

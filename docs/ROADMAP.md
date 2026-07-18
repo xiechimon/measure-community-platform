@@ -21,7 +21,7 @@
 
 ## 已知债 / 风险
 - **Wave 0 生产门禁已落地并真实跑通**:`bash scripts/ci/verify.sh` 在干净主机上完整执行 Unit → Integration → System → Capacity 四级门禁并打印 `Wave 0 verification: PASS`。真实覆盖:`mvn test`(离线单测)；`community-integration-tests` 的 `DatabaseMigrationIT`/`SensitivePersistenceIT` 连真实 MySQL 8(Testcontainers)验证 Flyway 版本化迁移(`V1__population_schema.sql`/`V2__rbac_schema.sql`)与证件号 AES 密文/HMAC 盲索引真实往返；`scripts/e2e/wave0-smoke.sh` 对已构建并启动的 gateway/auth/info 容器跑 10 项真实链路断言(登录、鉴权 401/403、人口创建与脱敏查询、日志脱敏、traceId)，10/10 通过；`scripts/perf/wave0.js` 用容器化 k6(20 VU/2m)测得 p50=5.6ms、p95=18.98ms(阈值 p95<1000ms)、`http_req_failed`=0.00%、132,445 次迭代/264,893 次 check 全部通过，基线记录在 `docs/operations/wave0-capacity-baseline.md`。这只是 Wave 0 的**最低可回归门禁基线**,不代表业务需求已完成验收(业务范围/完成度仍以本文件「阶段进度」和 `docs/requirements/backend-requirements.md` 为准);正式容量评审(多副本、真实数据量级、压测梯度)留给 Wave 5。运行/复现步骤见 `docs/operations/wave0-runbook.md`。
-- **本地 Flyway migrate 步骤硬编码 `127.0.0.1:3306`**:`scripts/ci/verify.sh`/运行手册第 4 步不跟随 `.env` 的 `MYSQL_HOST_PORT` 覆盖,宿主机已有原生 MySQL 占用 3306 时必须先停掉,详见运行手册「常见失败」。
+- ~~**本地 Flyway migrate 步骤硬编码 `127.0.0.1:3306`**~~ 已修复:`scripts/ci/verify.sh` 的 flyway 迁移端口改为跟随 `${MYSQL_HOST_PORT:-3306}`,与 compose/冒烟一致;设 `MYSQL_HOST_PORT` 覆盖即可与宿主机 native MySQL(3306)共存,不再需要先停 native MySQL。
 
 ## 参考
 - 设计文档:`docs/详细功能设计说明书-数智化社区服务平台-V7 版本.docx`、`docs/开发计划7.13(1).xlsx`

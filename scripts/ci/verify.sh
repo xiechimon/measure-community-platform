@@ -24,8 +24,10 @@ bash scripts/tests/nacos-bootstrap-it.sh
 echo "Integration gate: PASS"
 echo "System gate"
 docker compose up -d --wait mysql redis nacos
+# flyway 端口跟随 MYSQL_HOST_PORT（与 compose 及 wave0-smoke.sh setup_stack 一致），
+# 避免 .env 覆盖端口时仍打 3306 命中宿主机 native MySQL 的数据安全风险。
 mvn -N flyway:migrate \
-  -Dflyway.url=jdbc:mysql://127.0.0.1:3306/measure_community \
+  -Dflyway.url="jdbc:mysql://127.0.0.1:${MYSQL_HOST_PORT:-3306}/measure_community" \
   -Dflyway.user=root -Dflyway.password="$MYSQL_ROOT_PASSWORD"
 bash scripts/nacos/bootstrap.sh
 mvn package -DskipTests
