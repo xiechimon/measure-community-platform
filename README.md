@@ -25,6 +25,8 @@ JDK 17+、Maven 3.8+、Nacos 2.x(必须)、MySQL 8、Redis。
 
 ## 自动化本地启动与冒烟验证
 
+**权威的启动/验证路径见 [`docs/operations/wave0-runbook.md`](docs/operations/wave0-runbook.md)**：工具版本、`.env.example` → `.env`、依赖启动、Flyway migrate/validate、Nacos bootstrap、应用构建与 app profile、四/五级门禁(`bash scripts/ci/verify.sh`)、健康检查与日志脱敏、常见失败排查、清理和生产 Secrets 清单都在该文档里。**手工启动不需要**登录 Nacos 控制台创建命名空间或粘贴 YAML——`scripts/nacos/bootstrap.sh` 会幂等地创建命名空间 `74193cd9-fac4-4f2a-addc-47c60508b15c` 并导入 `doc/` 下全部配置。
+
 `.env.example` 提供仅供本地使用的完整变量集。以下命令会创建一个唯一的 Compose 项目、让 Docker 分配所有宿主机端口、运行 Flyway 迁移、初始化 Nacos 命名空间并导入配置、构建并启动 gateway、auth 和 info 三个应用 profile，最后执行真实 10 项冒烟断言：
 
 ```bash
@@ -33,9 +35,15 @@ ENV_FILE=.env.example bash scripts/e2e/wave0-smoke.sh --setup
 
 默认 `--setup` 是一次性完整验证：完成后只清理本次生成的 Compose 项目和项目卷。`KEEP_STACK=1` 仅用于本地调试；脚本会打印包含项目名和全部 Docker 动态端口的完整复用命令，复制该命令才能重跑断言。
 
+跑完整的四/五级门禁(单测 + 集成 + 系统 E2E + 容量)用一条命令：
+
+```bash
+bash scripts/ci/verify.sh
+```
+
 默认 Nacos 镜像是原生多架构的 `nacos/nacos-server:v2.5.2-slim`。如需固定到组织镜像，可在 `.env` 或命令环境中设置 `NACOS_IMAGE`；该覆盖项不改变 bootstrap 的 v1 API 合约。
 
-手工启动时，`application.yml` 的 dev profile 仍要求 Nacos 中存在命名空间 `74193cd9-fac4-4f2a-addc-47c60508b15c` 及 `doc/` 下配置。可用 `scripts/nacos/bootstrap.sh` 自动创建/导入；应用使用 `NACOS_SERVER_ADDR`、`NACOS_USERNAME`、`NACOS_PWD`、`DB_HOST` 等环境变量覆盖连接参数。
+应用使用 `NACOS_SERVER_ADDR`、`NACOS_USERNAME`、`NACOS_PWD`、`DB_HOST` 等环境变量覆盖连接参数；生产环境必需的完整 secrets 清单见运行手册第 11 节。
 
 ## 如何新增业务模块(以 community-xxx 为例)
 1. 复制 `community-info` 为 `community-xxx`,改 `pom.xml` 的 `<artifactId>`。

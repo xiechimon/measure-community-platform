@@ -20,10 +20,8 @@
 **决策依据**:业务铺开前必须先有"权限感知 + 加解密就位"的可复制样板,否则每个模块都要回填鉴权与真加密。故 P1(样板)→ P2(权限)先行,再 P3 大规模复制。
 
 ## 已知债 / 风险
-- **尚无端到端真跑**:全程仅单测+编译,MySQL/Nacos/Redis 未连过;版本历史落库、证件号密文往返、RBAC 登录链路、`@RequiresPermission` 真实 AOP 拦截**均未真实执行**。建议尽早用 docker-compose 起依赖做一次端到端验证。
-- **种子 admin 的 BCrypt 是占位哈希**,需用应用侧 `BCryptPasswordEncoder` 重算 `123456` 后再导入,否则登录不了。
-- **内部密钥 `expected-secret` 硬编码两处**(`AuthFilter` / `CommonConstant`),待外置。
-- **两库未对齐**:auth 本地数据源已改指 `measure_community`,Nacos 的 `community-auth-dev.yml` 需同步。
+- **Wave 0 生产门禁已落地并真实跑通**:`bash scripts/ci/verify.sh` 在干净主机上完整执行 Unit → Integration → System → Capacity 四级门禁并打印 `Wave 0 verification: PASS`。真实覆盖:`mvn test`(离线单测)；`community-integration-tests` 的 `DatabaseMigrationIT`/`SensitivePersistenceIT` 连真实 MySQL 8(Testcontainers)验证 Flyway 版本化迁移(`V1__population_schema.sql`/`V2__rbac_schema.sql`)与证件号 AES 密文/HMAC 盲索引真实往返；`scripts/e2e/wave0-smoke.sh` 对已构建并启动的 gateway/auth/info 容器跑 10 项真实链路断言(登录、鉴权 401/403、人口创建与脱敏查询、日志脱敏、traceId)，10/10 通过；`scripts/perf/wave0.js` 用容器化 k6(20 VU/2m)测得 p50=5.6ms、p95=18.98ms(阈值 p95<1000ms)、`http_req_failed`=0.00%、132,445 次迭代/264,893 次 check 全部通过，基线记录在 `docs/operations/wave0-capacity-baseline.md`。这只是 Wave 0 的**最低可回归门禁基线**,不代表业务需求已完成验收(业务范围/完成度仍以本文件「阶段进度」和 `docs/requirements/backend-requirements.md` 为准);正式容量评审(多副本、真实数据量级、压测梯度)留给 Wave 5。运行/复现步骤见 `docs/operations/wave0-runbook.md`。
+- **本地 Flyway migrate 步骤硬编码 `127.0.0.1:3306`**:`scripts/ci/verify.sh`/运行手册第 4 步不跟随 `.env` 的 `MYSQL_HOST_PORT` 覆盖,宿主机已有原生 MySQL 占用 3306 时必须先停掉,详见运行手册「常见失败」。
 - **样板未受权限保护**:`/api/v1/population` 在网关白名单免登录,撤白名单后需补 `population:*` 权限。
 
 ## 参考

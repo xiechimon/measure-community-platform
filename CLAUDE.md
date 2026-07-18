@@ -26,6 +26,31 @@ mvn -pl community-info test -Dtest=PopulationControllerTest#createPerson_returns
 - 依赖走阿里云镜像：父 pom `repositories` 覆盖普通依赖;**插件及其 provider（如 surefire-junit-platform）走 `~/.m2/settings.xml` 里 `mirrorOf=*` 的阿里云镜像**（境外中央仓在本网络不稳，缺此镜像会在 `mvn test` 阶段拉不到 surefire provider）。
 - 构建须在 **WSL 内用原生路径**（`/home/...`）跑,Windows 版 Maven 对 `\\wsl.localhost\` UNC 路径解析父 POM 有 bug。
 
+### Wave 0 四级门禁命令（unit / integration / e2e / perf）
+完整的启动与验证权威路径见 [`docs/operations/wave0-runbook.md`](docs/operations/wave0-runbook.md)；以下是分层执行入口，一条 `bash scripts/ci/verify.sh` 会按顺序全部跑一遍：
+```bash
+# unit：全离线，不连 MySQL/Redis/Nacos
+mvn test
+
+# integration：真实 Testcontainers MySQL 8（DatabaseMigrationIT/SensitivePersistenceIT）+ compose/Nacos 契约脚本
+mvn -pl community-integration-tests -am -Pintegration verify
+bash scripts/tests/compose-contract-test.sh
+bash scripts/tests/nacos-bootstrap-it.sh
+
+# e2e（system）：起依赖栈 + Flyway migrate + Nacos bootstrap + app profile 后跑真实链路冒烟
+bash scripts/e2e/wave0-smoke.sh          # 需已有一套运行中的栈（COMPOSE_PROJECT_NAME 等变量）
+ENV_FILE=.env.example bash scripts/e2e/wave0-smoke.sh --setup   # 一次性起栈 + 验证 + 清理
+
+# perf（capacity）：容器化 k6，20 VU/2m，阈值 http_req_failed<1%、p95<1000ms
+docker run --rm --network "${COMPOSE_PROJECT_NAME:-measure-community}_default" \
+  -e BASE_URL=http://community-gateway:8080 -e ADMIN_ACCOUNT=admin -e ADMIN_PASSWORD=123456 \
+  -i grafana/k6:0.52.0 run - < scripts/perf/wave0.js
+
+# 全部四级门禁一次跑完，最终打印 Unit/Integration/System/Capacity/Wave 0 verification 五行 PASS
+bash scripts/ci/verify.sh
+```
+- **Red/Green 证据规则**：新增或修改行为时必须先写测试并**确认因目标行为缺失而失败**（Red，通常是编译失败或断言失败），再写最小实现使其转绿（Green），禁止跳过“先见到失败”这一步直接补实现——这是本仓库 Wave 0 门禁（Tasks 1–12）实际遵循并验证过的流程，新提交延续同一约定。
+
 ### 本地起服务的两种 profile
 每个业务模块有两份配置，关键区别是**业务配置从哪来**：
 - `application.yml`（`profiles.active: dev`）：只 bootstrap Nacos，端口/数据源/网关路由等**全部从 Nacos 拉取**（`spring.config.import: nacos:...`）。需要先把 `doc/*.yaml` 导入 Nacos 命名空间 `74193cd9-fac4-4f2a-addc-47c60508b15c`。
