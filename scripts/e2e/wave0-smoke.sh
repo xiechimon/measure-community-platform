@@ -226,16 +226,15 @@ request POST "$GATEWAY_URL/api/v1/population/persons" "$create_body" -H 'Content
 assert_success "$create_body"
 POPULATION_ID="$(jq -er '.data | numbers' "$create_body")"
 
-echo "7/10 query is desensitized and never returns the plaintext ID card"
+echo "7/10 admin(sensitive:view) 明文解码 idCard，且查询参数在日志中脱敏"
 query_body="$TMP_DIR/query-population.json"
 QUERY_PASSWORD="wave0-password-${RANDOM}-${RANDOM}"
 request GET "$GATEWAY_URL/api/v1/population/persons?idCard=$ID_CARD&password=$QUERY_PASSWORD" "$query_body" -H "Authorization: Bearer $TOKEN"
 assert_success "$query_body"
 RETURNED_ID_CARD="$(jq -er --argjson id "$POPULATION_ID" '.data.records[] | select(.id == $id) | .idCard' "$query_body")"
-[[ "$RETURNED_ID_CARD" != "$ID_CARD" && "$RETURNED_ID_CARD" == *"*"* ]] || fail "ID card was not desensitized" "$query_body"
-if grep -Fq -- "$ID_CARD" "$query_body"; then
-  fail "query response leaked the plaintext ID card" "$query_body"
-fi
+# admin 持 population:sensitive:view → 响应里 idCard 明文解码；未授权角色的打码由 7c(gridA) 覆盖。
+# 响应体不写日志，下面仍断言查询参数(idCard/password)在 community-info 日志中被 LogSanitizer 脱敏为 ***。
+[[ "$RETURNED_ID_CARD" == "$ID_CARD" ]] || fail "admin with sensitive:view should see full idCard" "$query_body"
 QUERY_TRACE_ID="$(awk 'tolower($1) == "traceid:" {gsub("\\r", "", $2); print $2; exit}' "$TMP_DIR/headers")"
 [[ "$QUERY_TRACE_ID" =~ ^[[:xdigit:]]{32}$ ]] || fail "query response is missing a valid traceId" "$query_body"
 INFO_LOGS="$(compose logs --no-color community-info)"
@@ -245,6 +244,43 @@ fi
 grep -Fq -- "$QUERY_TRACE_ID" <<<"$INFO_LOGS" || fail "community-info logs are missing the query traceId"
 QUERY_LOG_LINE="$(grep -F -- "$QUERY_TRACE_ID" <<<"$INFO_LOGS" | grep -F -- "idCard=***&password=***" || true)"
 [[ -n "$QUERY_LOG_LINE" ]] || fail "community-info logs are missing sanitized query details for the query traceId"
+
+echo "7a/10 gridA login returns token (GRID data scope, no sensitive:view)"
+grida_login_body="$TMP_DIR/login-gridA.json"
+request POST "$GATEWAY_URL/api/v1/auth/login" "$grida_login_body" -H 'Content-Type: application/json' \
+  --data '{"account":"gridA","password":"123456"}'
+assert_success "$grida_login_body"
+TOKEN_GRIDA="$(jq -er '.data.token | select(type == "string" and length > 20)' "$grida_login_body")"
+
+ID_CARD_GRIDA="9$(date +%s)$(printf '%05d' "$RANDOM")"
+echo "7b/10 gridA creates a population record (grid_id defaults from her own context)"
+create_grida_body="$TMP_DIR/create-population-gridA.json"
+create_grida_payload="$(jq -cn --arg idCard "$ID_CARD_GRIDA" '{type:"常住",name:"Wave0网格A",idCard:$idCard,gender:"女",phone:"13800138001"}')"
+request POST "$GATEWAY_URL/api/v1/population/persons" "$create_grida_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN_GRIDA" --data "$create_grida_payload"
+assert_success "$create_grida_body"
+POPULATION_ID_GRIDA="$(jq -er '.data | numbers' "$create_grida_body")"
+
+echo "7c/10 gridA sees her own grid record, but idCard stays masked (no sensitive:view)"
+query_grida_body="$TMP_DIR/query-population-gridA.json"
+request GET "$GATEWAY_URL/api/v1/population/persons?idCard=$ID_CARD_GRIDA" "$query_grida_body" -H "Authorization: Bearer $TOKEN_GRIDA"
+assert_success "$query_grida_body"
+GRIDA_RETURNED_ID_CARD="$(jq -er --argjson id "$POPULATION_ID_GRIDA" '.data.records[] | select(.id == $id) | .idCard' "$query_grida_body")"
+[[ "$GRIDA_RETURNED_ID_CARD" != "$ID_CARD_GRIDA" && "$GRIDA_RETURNED_ID_CARD" == *"*"* ]] || fail "gridA's own record idCard was not desensitized" "$query_grida_body"
+
+echo "7d/10 admin sees gridA's record across grids, idCard fully decoded (sensitive:view)"
+query_admin_grida_body="$TMP_DIR/query-population-admin-for-gridA.json"
+request GET "$GATEWAY_URL/api/v1/population/persons?idCard=$ID_CARD_GRIDA" "$query_admin_grida_body" -H "Authorization: Bearer $TOKEN"
+assert_success "$query_admin_grida_body"
+ADMIN_VIEW_GRIDA_ID_CARD="$(jq -er --argjson id "$POPULATION_ID_GRIDA" '.data.records[] | select(.id == $id) | .idCard' "$query_admin_grida_body")"
+[[ "$ADMIN_VIEW_GRIDA_ID_CARD" == "$ID_CARD_GRIDA" ]] || fail "admin did not see gridA's plaintext idCard" "$query_admin_grida_body"
+
+echo "7e/10 gridA's GRID scope excludes admin's NULL-grid record (row isolation)"
+query_grida_isolation_body="$TMP_DIR/query-population-gridA-isolation.json"
+request GET "$GATEWAY_URL/api/v1/population/persons?idCard=$ID_CARD" "$query_grida_isolation_body" -H "Authorization: Bearer $TOKEN_GRIDA"
+assert_success "$query_grida_isolation_body"
+GRIDA_SEES_ADMIN_ROW_COUNT="$(jq -er --argjson id "$POPULATION_ID" '[.data.records[] | select(.id == $id)] | length' "$query_grida_isolation_body")"
+[[ "$GRIDA_SEES_ADMIN_ROW_COUNT" == "0" ]] || fail "gridA's GRID scope leaked admin's NULL-grid record" "$query_grida_isolation_body"
 
 echo "8/10 direct info access without internal header is forbidden"
 direct_body="$TMP_DIR/direct-info.json"
