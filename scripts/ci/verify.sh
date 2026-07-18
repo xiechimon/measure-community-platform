@@ -32,4 +32,12 @@ mvn package -DskipTests
 docker compose --profile app up -d --build --wait
 bash scripts/e2e/wave0-smoke.sh
 echo "System gate: PASS"
-echo "Wave 0 functional verification: PASS"
+echo "Capacity gate"
+# Network name tracks COMPOSE_PROJECT_NAME (see scripts/e2e/wave0-smoke.sh):
+# locally "measure-community-verify_default", in clean CI (unset) "measure-community_default".
+docker run --rm --network "${COMPOSE_PROJECT_NAME:-measure-community}_default" \
+  -e BASE_URL=http://community-gateway:8080 \
+  -e ADMIN_ACCOUNT=admin -e ADMIN_PASSWORD=123456 \
+  -i grafana/k6:0.52.0 run - < scripts/perf/wave0.js
+echo "Capacity gate: PASS"
+echo "Wave 0 verification: PASS"
