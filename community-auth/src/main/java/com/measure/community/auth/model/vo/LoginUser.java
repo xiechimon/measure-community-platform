@@ -27,4 +27,13 @@ public class LoginUser implements Serializable {
 
     /** 权限点码,如 population:export */
     private List<String> permissions;
+
+    /** 归属组织 ID(数据范围过滤用,§P2b) */
+    private Long orgId;
+
+    /** 归属网格 ID(数据范围过滤用,§P2b) */
+    private Long gridId;
+
+    /** 多角色取最宽档后的数据范围:ALL/GRID/SELF */
+    private String dataScope;
 }

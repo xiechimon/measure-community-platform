@@ -27,4 +27,12 @@ public interface SysUserMapper extends BaseMapper<SysUser> {
             WHERE ur.user_id = #{userId}
             """)
     List<String> selectPermissionCodes(@Param("userId") Long userId);
+
+    /** 查用户拥有角色对应的数据范围码(经角色,可能多条,取最宽) */
+    @Select("""
+            SELECT r.data_scope FROM sys_role r
+            JOIN sys_user_role ur ON ur.role_id = r.id
+            WHERE ur.user_id = #{userId}
+            """)
+    List<String> selectRoleDataScopes(@Param("userId") Long userId);
 }

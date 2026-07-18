@@ -46,18 +46,8 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impleme
 			throw new BizException(SystemStatus.FORBIDDEN, "账号已停用");
 		}
 
-		// 3. 加载角色码 / 权限点码
-		List<String> roles = baseMapper.selectRoleCodes(user.getId());
-		List<String> permissions = baseMapper.selectPermissionCodes(user.getId());
-
-		// 4. 组装登录用户 + 签发 JWT
-		LoginUser loginUser = new LoginUser();
-		loginUser.setId(user.getId());
-		loginUser.setAccount(user.getUsername());
-		loginUser.setName(user.getName());
-		loginUser.setPhone(user.getPhone());
-		loginUser.setRoles(roles);
-		loginUser.setPermissions(permissions);
+		// 3~4. 组装登录用户(角色/权限/org/grid/dataScope) + 签发 JWT
+		LoginUser loginUser = buildLoginUser(user);
 		String token = JwtTokenUtils.createToken(user.getId());
 		loginUser.setToken(token);
 
@@ -66,5 +56,21 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impleme
 		redisTemplate.opsForValue().set("alibaba-token:" + token, JSON.toJSONString(loginUser), ttl, TimeUnit.SECONDS);
 		redisTemplate.opsForValue().set("alibaba_user_login_token:" + user.getId(), token, ttl, TimeUnit.SECONDS);
 		return RetObj.success(loginUser);
+	}
+
+	/** 从 SysUser + mapper 组装 LoginUser(角色码/权限点码/org/grid/最宽 dataScope);不含 token/Redis。 */
+	LoginUser buildLoginUser(SysUser u) {
+		LoginUser lu = new LoginUser();
+		lu.setId(u.getId());
+		lu.setAccount(u.getUsername());
+		lu.setName(u.getName());
+		lu.setPhone(u.getPhone());
+		lu.setRoles(baseMapper.selectRoleCodes(u.getId()));
+		lu.setPermissions(baseMapper.selectPermissionCodes(u.getId()));
+		lu.setOrgId(u.getOrgId());
+		lu.setGridId(u.getGridId());
+		lu.setDataScope(com.measure.community.common.enums.DataScope
+				.resolve(baseMapper.selectRoleDataScopes(u.getId())).name());
+		return lu;
 	}
 }
