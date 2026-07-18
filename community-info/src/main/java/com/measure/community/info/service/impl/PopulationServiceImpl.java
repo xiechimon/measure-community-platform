@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.measure.community.common.enums.SystemStatus;
 import com.measure.community.common.exception.BizException;
 import com.measure.community.common.utils.DesensitizeUtil;
+import com.measure.community.common.utils.UserContextHolder;
 import com.measure.community.info.api.model.PopulationCreateReqDto;
 import com.measure.community.info.api.model.PopulationDto;
 import com.measure.community.info.api.model.PopulationHisDto;
@@ -51,8 +52,9 @@ public class PopulationServiceImpl extends ServiceImpl<PopulationMapper, Populat
         qw.orderByDesc(Population::getCreateTime);
         Page<Population> page = this.page(new Page<>(req.getPage(), req.getSize()), qw);
 
+        boolean unmask = UserContextHolder.hasPermission("population:sensitive:view");
         PopulationPageDto dto = new PopulationPageDto();
-        List<PopulationDto> records = page.getRecords().stream().map(this::toDto).toList();
+        List<PopulationDto> records = page.getRecords().stream().map(p -> toDto(p, unmask)).toList();
         dto.setRecords(records);
         dto.setTotal(page.getTotal());
         dto.setSize(page.getSize());
@@ -82,6 +84,8 @@ public class PopulationServiceImpl extends ServiceImpl<PopulationMapper, Populat
         p.setPhone(req.getPhone());
         p.setInsuredStatus(req.getInsuredStatus());
         p.setEmploymentStatus(req.getEmploymentStatus());
+        p.setOrgId(UserContextHolder.getOrgId());
+        p.setGridId(UserContextHolder.getGridId());
         p.setVersion(1);
         this.save(p);
         // 基线历史(v1),保证血缘从创建起完整
@@ -157,20 +161,24 @@ public class PopulationServiceImpl extends ServiceImpl<PopulationMapper, Populat
         PopulationHis his = new PopulationHis();
         his.setPopulationId(p.getId());
         his.setVersion(p.getVersion());
-        his.setSnapshot(JSON.toJSONString(toDto(p)));
+        his.setSnapshot(JSON.toJSONString(toDto(p, false)));
         his.setChangedField(changedFields);
         populationHisMapper.insert(his);
     }
 
-    /** 实体 → 展示 DTO,敏感字段脱敏 */
-    private PopulationDto toDto(Population p) {
+    /**
+     * 实体 → 展示 DTO。unmask=true 返回明文 idCard/phone(需具备
+     * population:sensitive:view 权限),false 走 DesensitizeUtil 打码。
+     * 注意:writeHistory 的快照恒传 false,避免历史 JSON 列泄漏明文 PII。
+     */
+    private PopulationDto toDto(Population p, boolean unmask) {
         PopulationDto d = new PopulationDto();
         d.setId(p.getId());
         d.setType(p.getType());
         d.setName(p.getName());
-        d.setIdCard(DesensitizeUtil.idCard(p.getIdCard()));
+        d.setIdCard(unmask ? p.getIdCard() : DesensitizeUtil.idCard(p.getIdCard()));
         d.setGender(p.getGender());
-        d.setPhone(DesensitizeUtil.phone(p.getPhone()));
+        d.setPhone(unmask ? p.getPhone() : DesensitizeUtil.phone(p.getPhone()));
         d.setInsuredStatus(p.getInsuredStatus());
         d.setEmploymentStatus(p.getEmploymentStatus());
         d.setVersion(p.getVersion());
