@@ -228,13 +228,23 @@ POPULATION_ID="$(jq -er '.data | numbers' "$create_body")"
 
 echo "7/10 query is desensitized and never returns the plaintext ID card"
 query_body="$TMP_DIR/query-population.json"
-request GET "$GATEWAY_URL/api/v1/population/persons?idCard=$ID_CARD" "$query_body" -H "Authorization: Bearer $TOKEN"
+QUERY_PASSWORD="wave0-password-${RANDOM}-${RANDOM}"
+request GET "$GATEWAY_URL/api/v1/population/persons?idCard=$ID_CARD&password=$QUERY_PASSWORD" "$query_body" -H "Authorization: Bearer $TOKEN"
 assert_success "$query_body"
 RETURNED_ID_CARD="$(jq -er --argjson id "$POPULATION_ID" '.data.records[] | select(.id == $id) | .idCard' "$query_body")"
 [[ "$RETURNED_ID_CARD" != "$ID_CARD" && "$RETURNED_ID_CARD" == *"*"* ]] || fail "ID card was not desensitized" "$query_body"
 if grep -Fq -- "$ID_CARD" "$query_body"; then
   fail "query response leaked the plaintext ID card" "$query_body"
 fi
+QUERY_TRACE_ID="$(awk 'tolower($1) == "traceid:" {gsub("\\r", "", $2); print $2; exit}' "$TMP_DIR/headers")"
+[[ "$QUERY_TRACE_ID" =~ ^[[:xdigit:]]{32}$ ]] || fail "query response is missing a valid traceId" "$query_body"
+INFO_LOGS="$(compose logs --no-color community-info)"
+if grep -Fq -- "$ID_CARD" <<<"$INFO_LOGS" || grep -Fq -- "$QUERY_PASSWORD" <<<"$INFO_LOGS"; then
+  fail "community-info logs leaked a sensitive query value"
+fi
+grep -Fq -- "$QUERY_TRACE_ID" <<<"$INFO_LOGS" || fail "community-info logs are missing the query traceId"
+QUERY_LOG_LINE="$(grep -F -- "$QUERY_TRACE_ID" <<<"$INFO_LOGS" | grep -F -- "idCard=***&password=***" || true)"
+[[ -n "$QUERY_LOG_LINE" ]] || fail "community-info logs are missing sanitized query details for the query traceId"
 
 echo "8/10 direct info access without internal header is forbidden"
 direct_body="$TMP_DIR/direct-info.json"

@@ -4,6 +4,7 @@ package com.measure.community.common.filter;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
 import com.measure.community.common.constant.CommonConstant;
+import com.measure.community.common.utils.LogSanitizer;
 import com.measure.community.common.utils.UserContextHolder;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -102,7 +103,7 @@ public class RequestHeaderFilter implements Filter {
         
         // 4. 打印入口日志（此时 MDC 已经有了 traceId 和 userId）
         log.info("[请求信息] Method: {}, URI: {}, Params: {}", method, uri,
-                StringUtils.hasText(queryString) ? queryString : "EMPTY");
+                LogSanitizer.sanitizeQuery(queryString));
 
         try {
             chain.doFilter(request, response);
