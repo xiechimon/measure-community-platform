@@ -1,25 +1,20 @@
 # 本地依赖栈:Nacos(注册/配置)+ MySQL(业务库,自动建表)+ Redis(会话/token)
-# 用法:
-#   docker compose up -d          # 起三个依赖
-#   docker compose ps             # 看健康状态
-#   docker compose down           # 停(保留数据卷)
-#   docker compose down -v        # 停并清数据
-# 起来后仍需:① Nacos 建命名空间 74193cd9-fac4-4f2a-addc-47c60508b15c
-#             ② 导入 doc/*.yaml 到该命名空间(见 README/ROADMAP)
-# 之后在宿主机跑:mvn -pl community-gateway spring-boot:run / mvn -pl community-info -am spring-boot:run
+# Wave 0 deterministic E2E (isolated project and .env.example by default):
+#   ENV_FILE=.env.example bash scripts/e2e/wave0-smoke.sh --setup
+# The smoke script performs Flyway migration, Nacos bootstrap, and app startup.
+# Plain Compose still starts only dependencies; run the script or bootstrap apps manually.
 
 name: measure-community
 
 services:
   mysql:
     image: mysql:8.0
-    container_name: mc-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
       MYSQL_DATABASE: measure_community
       TZ: Asia/Shanghai
-    ports: ["127.0.0.1:3306:3306"]
+    ports: ["127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306"]
     volumes:
       - mc-mysql-data:/var/lib/mysql
       # 首次初始化时按文件名顺序执行:01 建人口表、02 建 RBAC 表+种子
@@ -33,12 +28,11 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: mc-redis
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
-    ports: ["127.0.0.1:6379:6379"]
+    ports: ["127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"]
     volumes:
       - mc-redis-data:/data
     healthcheck:
@@ -48,13 +42,14 @@ services:
       retries: 5
 
   nacos:
-    image: nacos/nacos-server:v2.3.2
-    container_name: mc-nacos
-    restart: unless-stopped
+    # Official slim tag provides a native arm64 image for Apple Silicon.
+    image: ${NACOS_IMAGE:-nacos/nacos-server:v2.5.2-slim}
+    # E2E diagnostics can set this to "no" without weakening the normal default.
+    restart: ${NACOS_RESTART_POLICY:-unless-stopped}
     environment:
       MODE: standalone            # 单机模式,内嵌 Derby,无需额外 DB
-      NACOS_AUTH_ENABLE: "true"   # 应用以 nacos/nacos 连接(见各模块 application.yml 默认值)
-      # 2.2+ 开启鉴权必须提供以下三项,否则启动失败;控制台登录仍为 nacos/nacos
+      NACOS_AUTH_ENABLE: "true"   # bootstrap 初始化固定内置管理员 nacos 的 NACOS_PASSWORD 并验证登录
+      # 2.2+ 开启鉴权必须提供以下三项,否则启动失败
       NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:?NACOS_AUTH_TOKEN is required}
       NACOS_AUTH_IDENTITY_KEY: ${NACOS_AUTH_IDENTITY_KEY:?NACOS_AUTH_IDENTITY_KEY is required}
       NACOS_AUTH_IDENTITY_VALUE: ${NACOS_AUTH_IDENTITY_VALUE:?NACOS_AUTH_IDENTITY_VALUE is required}
@@ -64,16 +59,67 @@ services:
       JVM_XMX: 1024m
       JVM_XMN: 256m
     ports:
-      - "127.0.0.1:8848:8848"     # 主端口 / 控制台
-      - "127.0.0.1:9848:9848"     # 2.x gRPC(客户端必需)
+      - "127.0.0.1:${NACOS_HOST_PORT:-8848}:8848"     # 主端口 / 控制台
+      - "127.0.0.1:${NACOS_GRPC_HOST_PORT:-9848}:9848" # 2.x gRPC(客户端必需)
     volumes:
-      # v2:换新卷,绕开旧卷里那份建库夭折的残缺 Derby(旧卷 mc-nacos-data 弃用即可,无需删除)
+      # Dedicated Nacos data volume for this Compose project; never delete unrelated user volumes.
       - mc-nacos-data-v2:/home/nacos/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8848/nacos/v1/console/health/readiness"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8848/nacos/v1/console/health/readiness && bash -c '</dev/tcp/127.0.0.1/9848'"]
       interval: 10s
       timeout: 5s
       retries: 10
+
+  community-gateway:
+    profiles: ["app"]
+    build:
+      context: .
+      args:
+        SERVICE_NAME: community-gateway
+    environment: &app-environment
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: dev
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:?NACOS_USERNAME is required}
+      # The Spring applications read NACOS_PWD; .env exposes NACOS_PASSWORD.
+      NACOS_PWD: ${NACOS_PASSWORD:?NACOS_PASSWORD is required}
+      DB_HOST: mysql
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      SECURITY_INTERNAL_SECRET: ${SECURITY_INTERNAL_SECRET:?SECURITY_INTERNAL_SECRET is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SENSITIVE_AES_KEY: ${SENSITIVE_AES_KEY:?SENSITIVE_AES_KEY is required}
+      SENSITIVE_HMAC_KEY: ${SENSITIVE_HMAC_KEY:?SENSITIVE_HMAC_KEY is required}
+    ports: ["127.0.0.1:${GATEWAY_HOST_PORT:-9090}:8080"]
+    depends_on: &app-depends-on
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+
+  community-auth:
+    profiles: ["app"]
+    build:
+      context: .
+      args:
+        SERVICE_NAME: community-auth
+    environment: *app-environment
+    ports: ["127.0.0.1:${AUTH_HOST_PORT:-9093}:8080"]
+    depends_on: *app-depends-on
+
+  community-info:
+    profiles: ["app"]
+    build:
+      context: .
+      args:
+        SERVICE_NAME: community-info
+    environment: *app-environment
+    ports: ["127.0.0.1:${INFO_HOST_PORT:-9094}:8080"]
+    depends_on: *app-depends-on
 
 volumes:
   mc-mysql-data:

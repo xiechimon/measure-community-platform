@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,10 +71,10 @@ class ConfigurationContractTest {
         String infoNacos = read("doc/community-info-dev.yaml");
 
         assertAll(
-                () -> assertTrue(authLocal.contains("${SERVER_ADDRESS:127.0.0.1}")),
+                () -> assertTrue(authLocal.contains("${DB_HOST:127.0.0.1}")),
                 () -> assertTrue(authLocal.contains("username: ${DB_USERNAME:root}")),
                 () -> assertTrue(authLocal.contains("password: ${DB_PASSWORD:root}")),
-                () -> assertTrue(infoLocal.contains("${SERVER_ADDRESS:127.0.0.1}")),
+                () -> assertTrue(infoLocal.contains("${DB_HOST:127.0.0.1}")),
                 () -> assertTrue(infoLocal.contains("username: ${DB_USERNAME:root}")),
                 () -> assertTrue(infoLocal.contains("password: ${DB_PASSWORD:root}")),
                 () -> assertTrue(authNacos.contains("username: ${DB_USERNAME}")),
@@ -81,6 +82,23 @@ class ConfigurationContractTest {
                 () -> assertTrue(infoNacos.contains("username: ${DB_USERNAME}")),
                 () -> assertTrue(infoNacos.contains("password: ${DB_PASSWORD}"))
         );
+    }
+
+    @Test
+    void everyDatasourceUsesDbHostWithoutBindingSpringServerAddress() throws Exception {
+        List<Path> datasourceFiles = configurationFiles().stream()
+                .filter(file -> read(file).contains("jdbc:mysql:"))
+                .toList();
+
+        assertFalse(datasourceFiles.isEmpty(), "expected datasource configuration files");
+        assertAll(datasourceFiles.stream()
+                .<Executable>map(file -> () -> {
+                    String content = read(file);
+                    String name = PROJECT_ROOT.relativize(file).toString();
+                    assertFalse(content.contains("${SERVER_ADDRESS"), name);
+                    assertTrue(content.contains("${DB_HOST:127.0.0.1}"), name);
+                })
+                .toList());
     }
 
     @Test
@@ -159,7 +177,7 @@ class ConfigurationContractTest {
             return relative.getNameCount() == 2 && relative.getFileName().toString().endsWith(".yaml");
         }
 
-        if (Stream.of(relative).anyMatch(segment -> {
+        if (StreamSupport.stream(relative.spliterator(), false).anyMatch(segment -> {
             String name = segment.toString();
             return name.equals("target") || name.equals("build") || name.equals(".git");
         })) {
@@ -181,5 +199,13 @@ class ConfigurationContractTest {
 
     private static String read(String relativePath) throws Exception {
         return Files.readString(PROJECT_ROOT.resolve(relativePath));
+    }
+
+    private static String read(Path path) {
+        try {
+            return Files.readString(path);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Failed reading " + path, exception);
+        }
     }
 }

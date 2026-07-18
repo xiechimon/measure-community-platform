@@ -22,6 +22,9 @@ jq -e '.services.mysql.ports[] | select(.host_ip == "127.0.0.1" and .target == 3
 jq -e '.services.redis.ports[] | select(.host_ip == "127.0.0.1" and .target == 6379 and .published == "6379")' \
   <<<"$config" >/dev/null
 ! grep -q 'expected-secret' docker-compose.yml
+grep -Fq 'image: ${NACOS_IMAGE:-nacos/nacos-server:v2.5.2-slim}' docker-compose.yml
+grep -Fq 'restart: ${NACOS_RESTART_POLICY:-unless-stopped}' docker-compose.yml
+grep -Fq "bash -c '</dev/tcp/127.0.0.1/9848'" docker-compose.yml
 grep -Fq 'ENV_FILE="${NACOS_ENV_FILE:-$ROOT/.env}"' scripts/nacos/bootstrap.sh
 grep -Fq 'missing Nacos environment file: $ENV_FILE' scripts/nacos/bootstrap.sh
 grep -Fq 'username: ${DB_USERNAME}' doc/community-auth-dev.yaml
@@ -29,3 +32,8 @@ grep -Fq 'password: ${DB_PASSWORD}' doc/community-auth-dev.yaml
 grep -Fq 'username: ${DB_USERNAME}' doc/community-info-dev.yaml
 grep -Fq 'password: ${DB_PASSWORD}' doc/community-info-dev.yaml
 grep -Fq 'password: ${REDIS_PASSWORD}' doc/redis-common.yaml
+if rg -n -- '-Dflyway\.password=|-p\$MYSQL_ROOT_PASSWORD|password=\$\{NACOS_PASSWORD|accessToken=\$access_token' \
+  scripts/e2e scripts/nacos scripts/tests/nacos-bootstrap-it.sh; then
+  echo "secret must not be passed on a command argument" >&2
+  exit 1
+fi

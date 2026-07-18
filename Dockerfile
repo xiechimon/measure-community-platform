@@ -23,12 +23,14 @@ ENV SERVER_PORT=8080
 #标准 17-jdk版本创建用户
 #RUN useradd -m -u 1001 appuser && chown appuser:appuser /app
 # alpine 版本镜像创建用户 appuser 命令
-RUN adduser -D -u 1001 appuser && chown appuser:appuser /app
+RUN adduser -D -u 1001 appuser \
+    && mkdir -p /data/servers/logs \
+    && chown -R appuser:appuser /app /data
 USER appuser
 
-# 🟢 修改：直接从 Jenkins 的工作目录复制已经编译好的 Jar 包
-# 注意：Jenkins 编译后的路径通常在 target 下
-COPY ${SERVICE_NAME}/target/${SERVICE_NAME}-*.jar app.jar
+# Compose supplies SERVICE_NAME for each packaged Spring Boot module.  Copying
+# it with the runtime owner's uid keeps the image runnable as the non-root user.
+COPY --chown=appuser:appuser ${SERVICE_NAME}/target/${SERVICE_NAME}-*.jar /app/app.jar
 
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=8 \

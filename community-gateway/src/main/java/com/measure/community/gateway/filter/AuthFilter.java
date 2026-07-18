@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
-import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
@@ -37,6 +36,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
 
     private static final List<String> EXCLUDE_PATH_LIST = List.of("/api/v1/auth/login");
     private static final String TRACE_ID_HEADER = "traceId";
+    public static final String TRACE_ID_ATTRIBUTE = AuthFilter.class.getName() + ".traceId";
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
 
     private final String internalSecret;
@@ -56,18 +56,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
         // 计时开始
         long startTime = System.currentTimeMillis();
         // 1. 【2026-03-14新增】第一时间生成 TraceId
-        String traceId = UUID.randomUUID().toString().replace("-", "");
-
-        // 2. 【2026-03-14新增】将 TraceId 放入响应头，让前端在浏览器控制台能看到
-        // 采用 beforeCommit 机制及 try-catch，防止 Spring Security 等 Filter 链产生 ReadOnlyHttpHeaders 导致 500 崩溃
-        exchange.getResponse().beforeCommit(() -> {
-            try {
-                exchange.getResponse().getHeaders().set(TRACE_ID_HEADER, traceId);
-            } catch (Exception e) {
-                log.debug("无法写入 TraceId 到响应头：{}", e.getMessage());
-            }
-            return Mono.empty();
-        });
+        String traceId = exchange.getAttribute(TRACE_ID_ATTRIBUTE);
 
         ServerHttpRequest request = exchange.getRequest();
         String requestURI = request.getPath().pathWithinApplication().value();
@@ -90,8 +79,10 @@ public class AuthFilter implements GlobalFilter, Ordered {
 
         // 3. 封装请求修改逻辑（标准 WebFlux 做法）
         ServerHttpRequest.Builder requestBuilder = decoratedRequest.mutate()
-                .header("X-Internal-Auth", internalSecret)
-                .header(TRACE_ID_HEADER, traceId);
+                .header("X-Internal-Auth", internalSecret);
+        if (StringUtils.hasText(traceId)) {
+            requestBuilder.header(TRACE_ID_HEADER, traceId);
+        }
 
         // --- 1. 白名单逻辑 ---
         if (isWhiteList(requestURI)) {
@@ -158,7 +149,11 @@ public class AuthFilter implements GlobalFilter, Ordered {
     private Mono<Void> successResponse(ServerWebExchange exchange, GatewayFilterChain chain,
                                        String traceId, String userId, ServerHttpRequest mutatedRequest,
                                        long startTime) {
-        return chain.filter(exchange.mutate().request(mutatedRequest).build())
+        ServerWebExchange routedExchange = exchange.mutate().request(mutatedRequest).build();
+        if (StringUtils.hasText(traceId)) {
+            routedExchange.getAttributes().put(TRACE_ID_ATTRIBUTE, traceId);
+        }
+        return chain.filter(routedExchange)
                 .doFinally(signalType -> {
                     // 计算耗时
                     long duration = System.currentTimeMillis() - startTime;

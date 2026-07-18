@@ -23,18 +23,19 @@
 ## 环境准备
 JDK 17+、Maven 3.8+、Nacos 2.x(必须)、MySQL 8、Redis。
 
-## 启动步骤
-1. **建库**:执行 `database/mysql/01-init-schema.sql`(库名 `measure_community`)。
-2. **Nacos 命名空间**:新建命名空间,手填 ID `74193cd9-fac4-4f2a-addc-47c60508b15c`(免改代码)。
-3. **导入 Nacos 配置**(命名空间下):`doc/` 内
-   `common-config.yaml`、`redis-common.yaml`、`seata-common.yaml`、`rocketmq-common.yaml`、
-   `community-gateway-dev.yaml`、`community-info-dev.yaml`。
-4. **环境变量**(可选):`NACOS_SERVER_ADDR`、`NACOS_USERNAME`、`NACOS_PWD`、`SERVER_ADDRESS`(MySQL 主机)。
-5. **启动**:`community-gateway` → `community-info`。到 Nacos 控制台确认注册成功。
-   (`community-auth` 由脚手架 cloud-user 改名而来,如需启动须另在 Nacos 建 `community-auth-dev.yml` 及其数据源;本骨架验证只需 gateway + info。)
-6. **验证**:
-   - `POST http://<gateway>/api/v1/population/persons` body `{"type":"户籍","name":"张三","idCard":"3301X"}`
-   - `GET  http://<gateway>/api/v1/population/persons?pageNo=1&pageSize=10`
+## 自动化本地启动与冒烟验证
+
+`.env.example` 提供仅供本地使用的完整变量集。以下命令会创建一个唯一的 Compose 项目、让 Docker 分配所有宿主机端口、运行 Flyway 迁移、初始化 Nacos 命名空间并导入配置、构建并启动 gateway、auth 和 info 三个应用 profile，最后执行真实 10 项冒烟断言：
+
+```bash
+ENV_FILE=.env.example bash scripts/e2e/wave0-smoke.sh --setup
+```
+
+默认 `--setup` 是一次性完整验证：完成后只清理本次生成的 Compose 项目和项目卷。`KEEP_STACK=1` 仅用于本地调试；脚本会打印包含项目名和全部 Docker 动态端口的完整复用命令，复制该命令才能重跑断言。
+
+默认 Nacos 镜像是原生多架构的 `nacos/nacos-server:v2.5.2-slim`。如需固定到组织镜像，可在 `.env` 或命令环境中设置 `NACOS_IMAGE`；该覆盖项不改变 bootstrap 的 v1 API 合约。
+
+手工启动时，`application.yml` 的 dev profile 仍要求 Nacos 中存在命名空间 `74193cd9-fac4-4f2a-addc-47c60508b15c` 及 `doc/` 下配置。可用 `scripts/nacos/bootstrap.sh` 自动创建/导入；应用使用 `NACOS_SERVER_ADDR`、`NACOS_USERNAME`、`NACOS_PWD`、`DB_HOST` 等环境变量覆盖连接参数。
 
 ## 如何新增业务模块(以 community-xxx 为例)
 1. 复制 `community-info` 为 `community-xxx`,改 `pom.xml` 的 `<artifactId>`。

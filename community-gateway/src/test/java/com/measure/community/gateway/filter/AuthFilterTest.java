@@ -142,6 +142,18 @@ class AuthFilterTest {
     }
 
     @Test
+    void usesTraceIdProvidedByTheOuterResponseFilter() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/service/anything"));
+        exchange.getAttributes().put(AuthFilter.TRACE_ID_ATTRIBUTE, "0123456789abcdef0123456789abcdef");
+
+        filter.filter(exchange, chain).block();
+
+        String traceId = exchange.getAttribute(AuthFilter.TRACE_ID_ATTRIBUTE);
+        assertEquals("0123456789abcdef0123456789abcdef", traceId);
+    }
+
+    @Test
     void protectedPath_bareBearerToken_returns401_andDoesNotForward() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/v1/service/anything")
@@ -180,6 +192,7 @@ class AuthFilterTest {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/v1/service/anything")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer tk1"));
+        exchange.getAttributes().put(AuthFilter.TRACE_ID_ATTRIBUTE, "0123456789abcdef0123456789abcdef");
 
         filter.filter(exchange, chain).block();
 
@@ -187,9 +200,12 @@ class AuthFilterTest {
         verify(chain).filter(cap.capture());
         HttpHeaders h = cap.getValue().getRequest().getHeaders();
         assertEquals("unit-test-internal-secret", h.getFirst("X-Internal-Auth"));
+        assertEquals("0123456789abcdef0123456789abcdef", h.getFirst("traceId"));
         String userInfoB64 = h.getFirst("X-UserInfo");
         assertNotNull(userInfoB64);
         assertTrue(new String(Base64.getDecoder().decode(userInfoB64)).contains("Tom"));
+        assertEquals("0123456789abcdef0123456789abcdef",
+                cap.getValue().getAttribute(AuthFilter.TRACE_ID_ATTRIBUTE));
     }
 
     @Test

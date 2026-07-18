@@ -6,6 +6,9 @@ for required in curl jq; do
 done
 
 ROOT="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
+# NACOS_ENV_FILE supplies bootstrap credentials/configuration.  An explicit
+# caller target is invocation ownership and must survive sourcing that file.
+CALLER_NACOS_URL="${NACOS_URL:-}"
 ENV_FILE="${NACOS_ENV_FILE:-$ROOT/.env}"
 if [[ -n "${NACOS_ENV_FILE:-}" && ! -f "$ENV_FILE" ]]; then
   echo "missing Nacos environment file: $ENV_FILE" >&2
@@ -18,9 +21,17 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-readonly NACOS_URL="${NACOS_URL:-http://127.0.0.1:8848}"
+if [[ -n "$CALLER_NACOS_URL" ]]; then
+  NACOS_URL="$CALLER_NACOS_URL"
+else
+  NACOS_URL="${NACOS_URL:-http://127.0.0.1:8848}"
+fi
+readonly NACOS_URL
 readonly NACOS_NAMESPACE="74193cd9-fac4-4f2a-addc-47c60508b15c"
 readonly NACOS_NAMESPACE_NAME="measure-community"
+umask 077
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 wait_for_nacos() {
   local attempt
@@ -36,27 +47,48 @@ wait_for_nacos() {
 }
 
 login() {
-  local response
-  response="$(curl -fsS -X POST "$NACOS_URL/nacos/v1/auth/login" \
+  local response_file="$TMP_DIR/login-response.json" status access_token
+  status="$(printf '%s' "${NACOS_PASSWORD:?NACOS_PASSWORD is required}" | curl -sS -o "$response_file" -w '%{http_code}' -X POST "$NACOS_URL/nacos/v1/auth/login" \
     --data-urlencode "username=${NACOS_USERNAME:?NACOS_USERNAME is required}" \
-    --data-urlencode "password=${NACOS_PASSWORD:?NACOS_PASSWORD is required}")"
-  jq -er '.accessToken' <<<"$response"
+    --data-urlencode 'password@-' || true)"
+  if [[ "$status" == "200" ]] && access_token="$(jq -er '.accessToken' <"$response_file")"; then
+    printf '%s\n' "$access_token"
+    return 0
+  fi
+
+  if [[ "$status" == "500" ]] \
+    && grep -Eqi 'user[[:space:]]+nacos[[:space:]]+not[[:space:]]+found' "$response_file"; then
+    return 10
+  fi
+
+  echo "Nacos login failed (HTTP ${status:-unknown}); administrator initialization not attempted" >&2
+  return 1
+}
+
+initialize_admin() {
+  local response_file="$TMP_DIR/admin-init-response.json" status
+  status="$(printf '%s' "${NACOS_PASSWORD:?NACOS_PASSWORD is required}" | curl -sS -o "$response_file" -w '%{http_code}' -X POST "$NACOS_URL/nacos/v1/auth/users/admin" \
+    --data-urlencode 'password@-' || true)"
+  [[ "$status" =~ ^2[0-9][0-9]$ ]] || {
+    echo "Nacos administrator initialization failed (HTTP $status)" >&2
+    return 1
+  }
 }
 
 ensure_namespace() {
   local access_token="$1"
   local namespaces create_result
-  namespaces="$(curl -fsS --get "$NACOS_URL/nacos/v1/console/namespaces" \
-    --data-urlencode "accessToken=$access_token")"
+  namespaces="$(printf '%s' "$access_token" | curl -fsS --get "$NACOS_URL/nacos/v1/console/namespaces" \
+    --data-urlencode 'accessToken@-')"
   if jq -e --arg namespace "$NACOS_NAMESPACE" \
     'any(.data[]?; .namespace == $namespace)' <<<"$namespaces" >/dev/null; then
     return 0
   fi
 
-  create_result="$(curl -fsS -X POST "$NACOS_URL/nacos/v1/console/namespaces" \
+  create_result="$(printf '%s' "$access_token" | curl -fsS -X POST "$NACOS_URL/nacos/v1/console/namespaces" \
     --data-urlencode "customNamespaceId=$NACOS_NAMESPACE" \
     --data-urlencode "namespaceName=$NACOS_NAMESPACE_NAME" \
-    --data-urlencode "accessToken=$access_token")"
+    --data-urlencode 'accessToken@-')"
   [[ "$create_result" == "true" ]] || { echo "namespace creation failed" >&2; return 1; }
 }
 
@@ -71,17 +103,26 @@ publish_config() {
     return 1
   }
 
-  result="$(curl -fsS -X POST "$NACOS_URL/nacos/v1/cs/configs" \
+  result="$(printf '%s' "$access_token" | curl -fsS -X POST "$NACOS_URL/nacos/v1/cs/configs" \
     --data-urlencode "dataId=$data_id" \
     --data-urlencode "group=DEFAULT_GROUP" \
     --data-urlencode "tenant=$NACOS_NAMESPACE" \
     --data-urlencode "content@$source_file" \
-    --data-urlencode "accessToken=$access_token")"
+    --data-urlencode 'accessToken@-')"
   [[ "$result" == "true" ]] || { echo "publish failed: $data_id" >&2; return 1; }
 }
 
 wait_for_nacos
-access_token="$(login)"
+if access_token="$(login)"; then
+  :
+else
+  login_status=$?
+  if [[ "$login_status" -ne 10 ]]; then
+    exit "$login_status"
+  fi
+  initialize_admin
+  access_token="$(login)"
+fi
 ensure_namespace "$access_token"
 
 source_files=(

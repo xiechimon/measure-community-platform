@@ -30,7 +30,7 @@ mvn -pl community-info test -Dtest=PopulationControllerTest#createPerson_returns
 每个业务模块有两份配置，关键区别是**业务配置从哪来**：
 - `application.yml`（`profiles.active: dev`）：只 bootstrap Nacos，端口/数据源/网关路由等**全部从 Nacos 拉取**（`spring.config.import: nacos:...`）。需要先把 `doc/*.yaml` 导入 Nacos 命名空间 `74193cd9-fac4-4f2a-addc-47c60508b15c`。
 - `application-local.yml`：内嵌数据源与端口，用 `--spring.profiles.active=local` 即可**脱离部分 Nacos 配置**独立启动（仍需 Nacos 做注册发现）。
-- 覆盖项走环境变量：`NACOS_SERVER_ADDR`、`NACOS_USERNAME`、`NACOS_PWD`、`SERVER_ADDRESS`(MySQL 主机)。
+- 覆盖项走环境变量：`NACOS_SERVER_ADDR`、`NACOS_USERNAME`、`NACOS_PWD`、`DB_HOST`(MySQL 主机)。
 - 最小验证链路：`community-gateway`(9090) → `community-info`(9094)。
 
 ## 架构要点（跨文件才能看清的部分）
@@ -47,9 +47,9 @@ common 里的 bean（`RetObj`、`GlobalExceptionHandler`、`RequestHeaderFilter`
 
 ### 网关↔服务的内部鉴权握手（跨 gateway + common）
 这是最容易踩坑的横切逻辑，分布在两个模块：
-1. **网关** `AuthFilter`(order=-100)：校验 Redis 中 `alibaba-token:<token>`，然后给下游请求注入三个头——`X-Internal-Auth: expected-secret`、`X-UserInfo`(用户 JSON 的 Base64)、`traceId`。白名单 `EXCLUDE_PATH_LIST` 含 `/api/v1/population`（样板模块免登录，方便验证）与 `/api/v1/auth/login`、swagger 路径。
-2. **各业务服务** `RequestHeaderFilter`(common)：校验 `X-Internal-Auth` == `expected-secret`，不匹配直接 403（**禁止绕过网关直连**）；再把 `X-UserInfo` 解码进 `UserContextHolder`(ThreadLocal) 和 MDC。
-- 密钥常量目前硬编码在两处：`AuthFilter.SECRET_KEY` 与 `CommonConstant.SECRET_KEY`（均为 `expected-secret`）。改动务必同步。
+1. **网关** `AuthFilter`(order=-100)：只有 `/api/v1/auth/login` 是业务 API 白名单；健康检查和 API 文档也被单独放行。其余业务请求校验 Redis 中 `alibaba-token:<token>`，再向下游注入 `X-Internal-Auth`、`X-UserInfo`(用户 JSON 的 Base64) 和 `traceId`。
+2. **各业务服务** `RequestHeaderFilter`(common)：校验 `X-Internal-Auth` 与配置的 `security.internal.secret` 相同，不匹配直接 403（**禁止绕过网关直连**）；再把 `X-UserInfo` 解码进 `UserContextHolder`(ThreadLocal) 和 MDC。
+- 内部密钥通过 Spring 属性 `security.internal.secret` 注入；容器环境变量为 `SECURITY_INTERNAL_SECRET`。网关与所有下游服务必须配置为同一个值，不能在代码或文档中硬编码示例密钥。
 - `UserContextHolder` 是 ThreadLocal，`RequestHeaderFilter` 在 finally 里 clear，新增手动开线程/异步时要自行传递。
 
 ### 敏感字段：AES 密文列 + HMAC 盲索引
