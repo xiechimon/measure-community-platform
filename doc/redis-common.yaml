@@ -3,7 +3,7 @@ spring:
     redis:
       port: 6379
       host: ${REDIS_HOST:127.0.0.1}
-      password: #密码
+      password: ${REDIS_PASSWORD}
       timeout: 5000
       lettuce:   #参考博客 https://blog.csdn.net/weixin_43944305/article/details/124322595
         pool:
