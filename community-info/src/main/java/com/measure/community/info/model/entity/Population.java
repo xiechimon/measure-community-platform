@@ -1,7 +1,7 @@
 package com.measure.community.info.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.measure.community.info.support.AesTypeHandler;
+import com.measure.community.common.crypto.AesTypeHandler;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -13,7 +13,7 @@ public class Population {
     /** 户籍/常住/流动 */
     private String type;
     private String name;
-    /** 证件号,AES 加密存储(占位) */
+    /** 证件号，AES-256-GCM 密文存储 */
     @TableField(value = "id_card", typeHandler = AesTypeHandler.class)
     private String idCard;
     /** 证件号 HMAC 盲索引,用于唯一/等值精确匹配(见说明书§5) */

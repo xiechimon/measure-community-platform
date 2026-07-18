@@ -16,6 +16,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.measure</groupId>
+            <artifactId>community-common</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
