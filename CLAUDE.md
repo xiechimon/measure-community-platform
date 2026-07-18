@@ -87,7 +87,7 @@ common 里的 bean（`RetObj`、`GlobalExceptionHandler`、`RequestHeaderFilter`
 - 分页依赖 `MybatisPlusConfig` 里注册的 `PaginationInnerInterceptor(MYSQL)`——不注册则 `page()` 退化为全表查、`total` 为空。
 - 审计字段 `createTime/updateTime/createBy/updateBy` 由 `MybatisPlusConfig`(实现 `MetaObjectHandler`) 自动填充，`createBy/updateBy` 取自 `UserContextHolder.getUserId()`。实体对应字段要标 `@TableField(fill = ...)`。
 - 多数据源用 baomidou `dynamic-datasource`，`primary: master`。
-- 建表脚本 `database/mysql/01-init-schema.sql`，库名 `measure_community`。
+- 建表走 Flyway 版本化迁移 `database/mysql/migration/V1__population_schema.sql`、`V2__rbac_schema.sql`，库名 `measure_community`（不再用旧的 `01-init-schema.sql` 单文件初始化）。
 
 ### 统一响应与异常
 所有 controller 返回 `RetObj<T>`（`{code, message, data}`，`RetObj.success()/error()`）。异常由 common 的 `GlobalExceptionHandler` 兜底，`SystemStatus` 枚举定义状态码。
