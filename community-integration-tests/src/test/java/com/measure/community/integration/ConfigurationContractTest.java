@@ -9,10 +9,13 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -78,6 +81,66 @@ class ConfigurationContractTest {
                 () -> assertTrue(infoNacos.contains("username: ${DB_USERNAME}")),
                 () -> assertTrue(infoNacos.contains("password: ${DB_PASSWORD}"))
         );
+    }
+
+    @Test
+    void readinessGroupsUseDiscoveryCompositeAndContainerServerPortIs8080() throws Exception {
+        String dockerfile = read("Dockerfile");
+
+        List<Executable> assertions = new ArrayList<>(List.of(
+                () -> assertReadinessConfiguration(
+                        "community-gateway/src/main/resources/application-local.yml",
+                        "readinessState,redis,discoveryComposite"),
+                () -> assertReadinessConfiguration(
+                        "community-auth/src/main/resources/application-local.yml",
+                        "readinessState,db,redis,discoveryComposite"),
+                () -> assertReadinessConfiguration(
+                        "community-info/src/main/resources/application-local.yml",
+                        "readinessState,db,redis,discoveryComposite"),
+                () -> assertReadinessConfiguration(
+                        "doc/community-gateway-dev.yaml",
+                        "readinessState,redis,discoveryComposite"),
+                () -> assertReadinessConfiguration(
+                        "doc/community-auth-dev.yaml",
+                        "readinessState,db,redis,discoveryComposite"),
+                () -> assertReadinessConfiguration(
+                        "doc/community-info-dev.yaml",
+                        "readinessState,db,redis,discoveryComposite")));
+        assertions.add(() -> assertTrue(dockerfile.contains("ENV SERVER_PORT=8080")));
+
+        assertAll(assertions);
+    }
+
+    private static void assertReadinessConfiguration(String path, String expectedMembers) throws Exception {
+        Map<String, Object> configuration = readYaml(path);
+        assertAll(
+                () -> assertEquals("health,info", valueAt(configuration,
+                        "management", "endpoints", "web", "exposure", "include"), path),
+                () -> assertEquals(true, valueAt(configuration,
+                        "management", "endpoint", "health", "probes", "enabled"), path),
+                () -> assertEquals(expectedMembers, valueAt(configuration,
+                        "management", "endpoint", "health", "group", "readiness", "include"), path)
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> readYaml(String relativePath) throws Exception {
+        LoaderOptions options = new LoaderOptions();
+        options.setAllowDuplicateKeys(false);
+        try (Reader reader = Files.newBufferedReader(PROJECT_ROOT.resolve(relativePath))) {
+            return (Map<String, Object>) new Yaml(new SafeConstructor(options)).load(reader);
+        }
+    }
+
+    private static Object valueAt(Map<String, Object> root, String... path) {
+        Object current = root;
+        for (String segment : path) {
+            if (!(current instanceof Map<?, ?> map)) {
+                return null;
+            }
+            current = map.get(segment);
+        }
+        return current;
     }
 
     private static List<Path> configurationFiles() throws Exception {

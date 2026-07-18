@@ -28,6 +28,11 @@ class RequestHeaderFilterTest {
             return "pong";
         }
 
+        @GetMapping({"/actuator/health", "/actuator/health/readiness"})
+        public String readiness() {
+            return "ready";
+        }
+
         /** 回显当前上下文权限,用于验证 X-UserInfo 解析传播 */
         @GetMapping("/whoami")
         public String whoami() {
@@ -48,6 +53,48 @@ class RequestHeaderFilterTest {
     @Test
     void missingInternalAuth_returns403AndRetObj() throws Exception {
         mockMvc.perform(get("/ping"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(10002));
+    }
+
+    @Test
+    void readinessHealthPath_withoutInternalAuth_reachesController() throws Exception {
+        mockMvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("ready"));
+    }
+
+    @Test
+    void rootHealthPath_withoutInternalAuth_reachesController() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("ready"));
+    }
+
+    @Test
+    void readinessHealthPath_withContextPath_withoutInternalAuth_reachesController() throws Exception {
+        mockMvc.perform(get("/auth/actuator/health/readiness").contextPath("/auth"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("ready"));
+    }
+
+    @Test
+    void actuatorRoot_withoutInternalAuth_returns403() throws Exception {
+        mockMvc.perform(get("/actuator"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(10002));
+    }
+
+    @Test
+    void actuatorEnv_withoutInternalAuth_returns403() throws Exception {
+        mockMvc.perform(get("/actuator/env"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(10002));
+    }
+
+    @Test
+    void healthcheckPrefix_withoutInternalAuth_returns403() throws Exception {
+        mockMvc.perform(get("/actuator/healthcheck"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(10002));
     }

@@ -4,7 +4,14 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis,discoveryComposite
 spring:
   datasource:
     dynamic:

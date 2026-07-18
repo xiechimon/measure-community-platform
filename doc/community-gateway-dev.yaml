@@ -1,6 +1,18 @@
 # 导入 Nacos 后作为 community-gateway 的路由配置。
 server:
   port: 9090
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,redis,discoveryComposite
 spring:
   cloud:
     gateway:

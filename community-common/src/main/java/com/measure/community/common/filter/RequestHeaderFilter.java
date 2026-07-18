@@ -49,9 +49,14 @@ public class RequestHeaderFilter implements Filter {
 
         // 1. 提取基础信息
         String uri = req.getRequestURI();
+        String pathWithinApplication = pathWithinApplication(req);
         String method = req.getMethod();
         // 获取 URL 后的参数 (?id=1)
         String queryString = req.getQueryString();
+        if (isHealthPath(pathWithinApplication)) {
+            chain.doFilter(request, response);
+            return;
+        }
         // 1. 【2026-03-14新增】处理 TraceId
         String traceId = req.getHeader(CommonConstant.TRACE_ID_HEADER);
         if (StringUtils.hasText(traceId)) {
@@ -121,5 +126,19 @@ public class RequestHeaderFilter implements Filter {
             }
         }
         return set;
+    }
+
+    private static boolean isHealthPath(String uri) {
+        return "/actuator/health".equals(uri) || uri.startsWith("/actuator/health/");
+    }
+
+    private static String pathWithinApplication(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (!StringUtils.hasText(contextPath)
+                || (!uri.equals(contextPath) && !uri.startsWith(contextPath + "/"))) {
+            return uri;
+        }
+        return uri.substring(contextPath.length());
     }
 }

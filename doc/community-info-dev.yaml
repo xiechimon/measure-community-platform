@@ -2,6 +2,18 @@
 # 生产用真实数据源覆盖 application-local.yml。
 server:
   port: 9094
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis,discoveryComposite
 spring:
   datasource:
     dynamic:

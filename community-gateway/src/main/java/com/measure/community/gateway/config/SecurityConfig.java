@@ -1,7 +1,10 @@
 package com.measure.community.gateway.config;
 
+import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
+import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
@@ -26,9 +29,15 @@ public class SecurityConfig {
 		http
 				.csrf(csrf -> csrf.disable())  // 禁用 CSRF
 				.authorizeExchange(exchanges -> exchanges
-						.pathMatchers("/**").permitAll() //放行所有接口
-						.anyExchange().authenticated()
-				);
+						.matchers(EndpointRequest.to(HealthEndpoint.class)).permitAll()
+						.matchers(EndpointRequest.toAnyEndpoint()).authenticated()
+						.pathMatchers("/actuator/**").authenticated()
+						.anyExchange().permitAll())
+				.exceptionHandling(exceptions -> exceptions
+						.authenticationEntryPoint((exchange, exception) -> {
+							exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+							return exchange.getResponse().setComplete();
+						}));
 		return http.build();
 	}
 

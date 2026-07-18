@@ -64,6 +64,70 @@ class AuthFilterTest {
     }
 
     @Test
+    void readinessHealthPath_withoutToken_forwardsToChain() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/actuator/health/readiness"));
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(any());
+    }
+
+    @Test
+    void rootHealthPath_withoutToken_forwardsToChain() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/actuator/health"));
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(any());
+    }
+
+    @Test
+    void readinessHealthPath_withContextPath_withoutToken_forwardsToChain() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/gateway/actuator/health/readiness")
+                        .contextPath("/gateway"));
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(any());
+    }
+
+    @Test
+    void actuatorRoot_withoutToken_returns401_andDoesNotForward() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/actuator"));
+
+        filter.filter(exchange, chain).block();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verify(chain, never()).filter(any());
+    }
+
+    @Test
+    void actuatorEnv_withoutToken_returns401_andDoesNotForward() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/actuator/env"));
+
+        filter.filter(exchange, chain).block();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verify(chain, never()).filter(any());
+    }
+
+    @Test
+    void healthcheckPrefix_withoutToken_returns401_andDoesNotForward() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/actuator/healthcheck"));
+
+        filter.filter(exchange, chain).block();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verify(chain, never()).filter(any());
+    }
+
+    @Test
     void protectedPath_missingToken_returns401_andDoesNotForward() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/v1/service/anything"));

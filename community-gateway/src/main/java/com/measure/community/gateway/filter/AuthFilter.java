@@ -70,7 +70,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
         });
 
         ServerHttpRequest request = exchange.getRequest();
-        String requestURI = request.getURI().getPath();
+        String requestURI = request.getPath().pathWithinApplication().value();
 
         // 应对 Spring Security 6.3.4+ 引起的 StrictFirewallHttpHeaders 只读 Bug
         // 显式克隆出一个完全可写的 HttpHeaders，并使用 Decorator 包装原始 request，确保 request.mutate() 不会抛出 UnsupportedOperationException
@@ -127,9 +127,14 @@ public class AuthFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isWhiteList(String requestURI) {
-        return EXCLUDE_PATH_LIST.stream().anyMatch(requestURI::startsWith) ||
+        return isHealthPath(requestURI) ||
+                EXCLUDE_PATH_LIST.stream().anyMatch(requestURI::startsWith) ||
                 requestURI.contains("/v3/api-docs") ||
                 requestURI.contains("/doc.html");
+    }
+
+    private static boolean isHealthPath(String uri) {
+        return "/actuator/health".equals(uri) || uri.startsWith("/actuator/health/");
     }
 
     private String extractUserId(String userInfoJson) {
