@@ -39,6 +39,24 @@ public class UserContextHolder {
         return userInfo != null ? userInfo.get("name") : null;
     }
 
+    public static Long getOrgId() { return parseLong("orgId"); }
+
+    public static Long getGridId() { return parseLong("gridId"); }
+
+    /** 数据范围码，缺失时按最窄 SELF。 */
+    public static String getDataScope() {
+        Map<String, String> u = context.get();
+        String s = u != null ? u.get("dataScope") : null;
+        return (s == null || s.isBlank()) ? "SELF" : s;
+    }
+
+    private static Long parseLong(String key) {
+        Map<String, String> u = context.get();
+        String v = u != null ? u.get(key) : null;
+        if (v == null || v.isBlank()) return null;
+        try { return Long.valueOf(v); } catch (NumberFormatException e) { return null; }
+    }
+
     // ---- 角色 / 权限(RBAC,§6)----
     public static void setRoles(Set<String> r) {
         roles.set(r);
