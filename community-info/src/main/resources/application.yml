@@ -2,7 +2,7 @@ spring:
   application:
     name: community-info
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   cloud:
     nacos:
       discovery:

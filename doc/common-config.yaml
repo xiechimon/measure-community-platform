@@ -1,5 +1,13 @@
 server:
-  addr: http://ip:9090/
+  addr: ${GATEWAY_PUBLIC_URL:http://127.0.0.1:9090}
+
+security:
+  internal:
+    secret: ${SECURITY_INTERNAL_SECRET}
+
+sensitive:
+  aes-key: ${SENSITIVE_AES_KEY}
+  hmac-key: ${SENSITIVE_HMAC_KEY}
 
 logging:
   config: classpath:logback-spring.xml

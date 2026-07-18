@@ -2,7 +2,7 @@ spring:
   application:
     name: community-gateway  # 网关服务的名称
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   cloud:
     nacos:
       discovery: #注册中心

@@ -38,7 +38,8 @@ auth_config="$(curl -fsS --get "$NACOS_URL/nacos/v1/cs/configs" \
   --data-urlencode "tenant=$NACOS_NAMESPACE" \
   --data-urlencode "accessToken=$access_token")"
 grep -q '^jwt:' <<<"$auth_config"
-grep -Fq '${MYSQL_ROOT_PASSWORD}' <<<"$auth_config"
+grep -Fq '${DB_USERNAME}' <<<"$auth_config"
+grep -Fq '${DB_PASSWORD}' <<<"$auth_config"
 
 redis_config="$(curl -fsS --get "$NACOS_URL/nacos/v1/cs/configs" \
   --data-urlencode "dataId=redis-common.yaml" \

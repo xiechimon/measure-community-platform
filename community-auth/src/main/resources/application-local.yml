@@ -12,10 +12,10 @@ spring:
       primary: master
       strict: false #设置严格模式,默认false不启动. 启动后在未匹配到指定数据源时候回抛出异常,不启动会使用默认数据源.
       datasource:
-        master: #${SERVER_ADDRESS}
-          url: jdbc:mysql://${SERVER_ADDRESS}:3306/measure_community?useUnicode=true&characterEncoding=utf-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai
-          username:
-          password:
+        master:
+          url: jdbc:mysql://${SERVER_ADDRESS:127.0.0.1}:3306/measure_community?useUnicode=true&characterEncoding=utf-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai
+          username: ${DB_USERNAME:root}
+          password: ${DB_PASSWORD:root}
           driver-class-name: com.mysql.cj.jdbc.Driver
           hikari:
             minimum-idle: 4
