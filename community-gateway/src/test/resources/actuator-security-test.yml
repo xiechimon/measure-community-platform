@@ -8,6 +8,11 @@ spring:
       discovery:
         enabled: false
 management:
+  # 安全测试只验证 /actuator/health 免鉴权公开，不验证依赖健康；
+  # 关掉 redis 健康指示器让根 health 离线也 UP，保持单元测试离线（生产 readiness 仍含 redis）。
+  health:
+    redis:
+      enabled: false
   endpoints:
     web:
       exposure:
