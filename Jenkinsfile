@@ -10,7 +10,7 @@ pipeline {
         gitParameter(
             name: 'BRANCH_NAME',
             type: 'PT_BRANCH',
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: '请从下拉列表中选择要发布的分支',
             branchFilter: 'origin/(.*)',
             sortMode: 'ASCENDING_SMART',
@@ -31,7 +31,6 @@ pipeline {
         GITHUB_REPO = "git@github.com:RemainderTime/measure-community-platform.git"
         GITHUB_CREDENTIALS_ID = "github-ssh-key"
         DEPLOY_USER = "root"
-        DEPLOY_HOST = "服务器ip"
         DEPLOY_PORT = "22"
         DEPLOY_SSH_ID = "server-ssh-credentials"
     }
@@ -45,14 +44,16 @@ pipeline {
                     env.REAL_SERVICE_NAME = env.JOB_NAME.split('/')[-1]
 
                     // 校验：确保任务名符合命名规范
-                    if (!env.REAL_SERVICE_NAME.startsWith("cloud-")) {
-                        error "任务名必须以 'cloud-' 开头（当前是: ${env.REAL_SERVICE_NAME}），请修改 Jenkins 任务名称！"
+                    if (!env.REAL_SERVICE_NAME.startsWith("community-")) {
+                        error "任务名必须以 'community-' 开头（当前是: ${env.REAL_SERVICE_NAME}），请修改 Jenkins 任务名称！"
                     }
 
                     // 修改构建标题，如：#5-community-gateway
                     currentBuild.displayName = "#${BUILD_NUMBER}-${env.REAL_SERVICE_NAME}"
 
                     def config = getServiceConfig(env.REAL_SERVICE_NAME)
+                    env.CONTAINER_NAME = config.containerName
+                    env.CONTAINER_PORT = config.containerPort
                     echo "========== 自动化识别成功 =========="
                     echo "当前任务路径: ${env.JOB_NAME}"
                     echo "识别服务模块: ${env.REAL_SERVICE_NAME}"
@@ -80,11 +81,30 @@ pipeline {
             }
         }
 
-        stage('2. Maven 编译') {
+        // 🟢 Wave 0 功能发布门禁：unit -> integration -> system 三层齐绿才允许继续构建/推送/部署。
+        // 禁止用 -DskipTests 之类的编译代替本阶段——scripts/ci/verify.sh 内部才会在测试全部通过后打包。
+        stage('2. Wave 0 功能门禁验证') {
             steps {
-                script {
-                    // 🟢 增量编译识别出的模块
-                    sh "mvn install -DskipTests --fail-at-end -pl ${env.REAL_SERVICE_NAME} -am -Dmaven.repo.local=/root/.m2/repository"
+                withCredentials([
+                    usernamePassword(credentialsId: 'measure-db-credentials', usernameVariable: 'DB_USERNAME', passwordVariable: 'DB_PASSWORD'),
+                    usernamePassword(credentialsId: 'measure-nacos-credentials', usernameVariable: 'NACOS_USERNAME', passwordVariable: 'NACOS_PASSWORD'),
+                    string(credentialsId: 'measure-jwt-secret', variable: 'JWT_SECRET'),
+                    string(credentialsId: 'measure-internal-secret', variable: 'SECURITY_INTERNAL_SECRET'),
+                    string(credentialsId: 'measure-aes-key', variable: 'SENSITIVE_AES_KEY'),
+                    string(credentialsId: 'measure-hmac-key', variable: 'SENSITIVE_HMAC_KEY')
+                ]) {
+                    sh '''
+                        set -euo pipefail
+                        # MySQL 的 root 密码与业务库密码一致（本地/CI 均如此，见 .env.example）
+                        export MYSQL_ROOT_PASSWORD="$DB_PASSWORD"
+                        # Redis 与 Nacos 服务端启动鉴权仅供本次 CI 临时栈使用，用后即焚，
+                        # 不对应任何长期凭据，因此每次构建随机生成，不落库、不写入仓库。
+                        export REDIS_PASSWORD="$(openssl rand -hex 24)"
+                        export NACOS_AUTH_TOKEN="$(openssl rand -base64 48)"
+                        export NACOS_AUTH_IDENTITY_KEY="ci-nacos-identity"
+                        export NACOS_AUTH_IDENTITY_VALUE="$(openssl rand -hex 24)"
+                        bash scripts/ci/verify.sh
+                    '''
                 }
             }
         }
@@ -94,6 +114,7 @@ pipeline {
                 script {
                     def config = getServiceConfig(env.REAL_SERVICE_NAME)
                     def FULL_IMAGE_NAME = "${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/${config.imageName}"
+                    env.FULL_IMAGE_NAME = FULL_IMAGE_NAME
 
                     withCredentials([usernamePassword(
                         credentialsId: "${DOCKER_CREDENTIALS_ID}",
@@ -111,36 +132,28 @@ pipeline {
 
         stage('4. 远程部署') {
             steps {
-                script {
-                    def config = getServiceConfig(env.REAL_SERVICE_NAME)
-                    def FULL_IMAGE_NAME = "${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/${config.imageName}"
-
+                // 任一凭据缺失，withCredentials 会直接让本阶段失败，不会以裸容器方式启动
+                withCredentials([
+                    usernamePassword(credentialsId: 'measure-db-credentials', usernameVariable: 'DB_USERNAME', passwordVariable: 'DB_PASSWORD'),
+                    usernamePassword(credentialsId: 'measure-nacos-credentials', usernameVariable: 'NACOS_USERNAME', passwordVariable: 'NACOS_PWD'),
+                    string(credentialsId: 'measure-jwt-secret', variable: 'JWT_SECRET'),
+                    string(credentialsId: 'measure-internal-secret', variable: 'SECURITY_INTERNAL_SECRET'),
+                    string(credentialsId: 'measure-aes-key', variable: 'SENSITIVE_AES_KEY'),
+                    string(credentialsId: 'measure-hmac-key', variable: 'SENSITIVE_HMAC_KEY'),
+                    string(credentialsId: 'measure-deploy-host', variable: 'DEPLOY_HOST')
+                ]) {
                     sshagent(["${DEPLOY_SSH_ID}"]) {
                         sh '''
-                            ssh -o StrictHostKeyChecking=no -p ''' + DEPLOY_PORT + ' ' + DEPLOY_USER + '@' + DEPLOY_HOST + ''' << 'DEPLOY_SCRIPT'
-                                set -e
-                                CONTAINER_NAME="''' + config.containerName + '''"
-                                CONTAINER_PORT="''' + config.containerPort + '''"
-                                FULL_IMAGE_NAME="''' + FULL_IMAGE_NAME + '''"
-                                IMAGE_TAG="''' + env.IMAGE_TAG + '''"
+                            set -euo pipefail
+                            ssh -o StrictHostKeyChecking=no -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" << DEPLOY_SCRIPT
+set -e
+docker stop $CONTAINER_NAME || true
+docker rm $CONTAINER_NAME || true
+docker pull $FULL_IMAGE_NAME:$IMAGE_TAG
+docker run -d --name $CONTAINER_NAME -p $CONTAINER_PORT:8080 --restart=always -m 512m -e JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC" -e SPRING_PROFILES_ACTIVE=prod -e NACOS_SERVER_ADDR=117.72.35.70 -e NACOS_USERNAME="$NACOS_USERNAME" -e NACOS_PWD="$NACOS_PWD" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e JWT_SECRET="$JWT_SECRET" -e SECURITY_INTERNAL_SECRET="$SECURITY_INTERNAL_SECRET" -e SENSITIVE_AES_KEY="$SENSITIVE_AES_KEY" -e SENSITIVE_HMAC_KEY="$SENSITIVE_HMAC_KEY" $FULL_IMAGE_NAME:$IMAGE_TAG
 
-                                docker stop \${CONTAINER_NAME} || true
-                                docker rm \${CONTAINER_NAME} || true
-                                docker pull \${FULL_IMAGE_NAME}:\${IMAGE_TAG}
-
-                                docker run -d \\
-                                  --name \${CONTAINER_NAME} \\
-                                  -p \${CONTAINER_PORT}:8080 \\
-                                  --restart=always \\
-                                  -m 512m \\
-                                  -e JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC" \\
-                                  -e NACOS_SERVER_ADDR=117.72.35.70 \\
-                                  -e NACOS_USERNAME=nacos \\
-                                  -e NACOS_PWD=nacos \\
-                                  \${FULL_IMAGE_NAME}:\${IMAGE_TAG}
-
-                                # 保持远程服务器整洁，保留最近 3 个版本的镜像
-                                docker images \${FULL_IMAGE_NAME} --format "{{.ID}}" | tail -n +4 | xargs -r docker rmi -f || true
+# 保持远程服务器整洁，保留最近 3 个版本的镜像
+docker images $FULL_IMAGE_NAME --format "{{.ID}}" | tail -n +4 | xargs -r docker rmi -f || true
 DEPLOY_SCRIPT
                         '''
                     }
@@ -151,8 +164,11 @@ DEPLOY_SCRIPT
 
     post {
         always {
-            // 🟢 本地资源清理（确保 2核3G 宿主机不会因为频繁构建而磁盘爆炸）
+            // 🟢 收集单元/集成测试报告，便于失败时追溯
+            junit testResults: '**/target/surefire-reports/*.xml,**/target/failsafe-reports/*.xml', allowEmptyResults: true
+            // 🟢 本地资源清理（确保 Wave 0 门禁临时栈与宿主机镜像不会越积越多）
             sh '''
+                docker compose --profile app down -v || true
                 docker image prune -f || true
                 docker builder prune -f || true
             '''
