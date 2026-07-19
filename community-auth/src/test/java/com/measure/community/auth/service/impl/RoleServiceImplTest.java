@@ -171,6 +171,7 @@ class RoleServiceImplTest {
         when(roleMapper.deleteById(eq(2L))).thenReturn(1);
 
         assertDoesNotThrow(() -> svc.deleteRole(2L));
+        verify(roleMapper).deleteRolePermissions(2L); // 级联清理角色↔权限链接
     }
 
     @Test

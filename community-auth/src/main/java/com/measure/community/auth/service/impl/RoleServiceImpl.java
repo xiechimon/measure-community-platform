@@ -88,6 +88,8 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         if (sysUserMapper.countUsersByRole(id) > 0) {
             throw new BizException(SystemStatus.CONFLICT, "角色已被用户绑定,不可删除");
         }
+        // 级联清理角色↔权限链接,避免删除角色后 sys_role_permission 残留孤儿行(复合主键无 FK,不会报错但脏数据)
+        this.baseMapper.deleteRolePermissions(id);
         this.removeById(id);
     }
 
