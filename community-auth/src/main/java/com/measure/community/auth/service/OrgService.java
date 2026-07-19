@@ -1,0 +1,24 @@
+package com.measure.community.auth.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.measure.community.auth.model.entity.SysOrg;
+import com.measure.community.auth.model.req.OrgCreateReq;
+import com.measure.community.auth.model.req.OrgUpdateReq;
+import com.measure.community.auth.model.vo.OrgDto;
+
+import java.util.List;
+
+/**
+ * 组织/网格层级树节点增删改查(X-02 §1)。
+ */
+public interface OrgService extends IService<SysOrg> {
+
+    /** 创建组织节点:校验 type 合法、name 非空、parentId(若有)存在,按父节点 path 追加自身 id 计算物化路径,返回新节点 ID。 */
+    Long createOrg(OrgCreateReq req);
+
+    /** 更新组织节点:仅可改 name/type,不改 parent/path。 */
+    void updateOrg(Long id, OrgUpdateReq req);
+
+    /** 按 path 升序列出全部组织节点。 */
+    List<OrgDto> listOrgs();
+}
