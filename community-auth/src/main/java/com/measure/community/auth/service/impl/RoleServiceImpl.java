@@ -44,6 +44,9 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createRole(RoleCreateReq req) {
+        if (!StringUtils.hasText(req.getCode()) || !StringUtils.hasText(req.getName())) {
+            throw new BizException(SystemStatus.BAD_REQUEST, "角色标识和名称不能为空");
+        }
         if (!validScope(req.getDataScope())) {
             throw new BizException(SystemStatus.BAD_REQUEST, "数据范围不合法");
         }
@@ -65,6 +68,9 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         SysRole role = this.getById(id);
         if (role == null) {
             throw new BizException(SystemStatus.NOT_FOUND, "角色不存在");
+        }
+        if (!StringUtils.hasText(req.getName())) {
+            throw new BizException(SystemStatus.BAD_REQUEST, "角色名称不能为空");
         }
         if (!validScope(req.getDataScope())) {
             throw new BizException(SystemStatus.BAD_REQUEST, "数据范围不合法");
@@ -115,6 +121,10 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void assignRoles(Long userId, List<Long> roleIds) {
+        // 目标用户必须存在,否则会向 sys_user_role(复合主键无 FK) 写入悬空孤儿行(spec §3.3)
+        if (sysUserMapper.selectById(userId) == null) {
+            throw new BizException(SystemStatus.NOT_FOUND, "用户不存在");
+        }
         if (!CollectionUtils.isEmpty(roleIds)
                 && this.baseMapper.selectByIds(roleIds).size() != roleIds.size()) {
             throw new BizException(SystemStatus.BAD_REQUEST, "角色不存在");

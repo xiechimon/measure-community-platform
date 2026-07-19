@@ -5,6 +5,7 @@ import com.measure.community.auth.mapper.SysRoleMapper;
 import com.measure.community.auth.mapper.SysUserMapper;
 import com.measure.community.auth.model.entity.SysPermission;
 import com.measure.community.auth.model.entity.SysRole;
+import com.measure.community.auth.model.entity.SysUser;
 import com.measure.community.auth.model.req.RoleCreateReq;
 import com.measure.community.auth.model.req.RoleQueryReq;
 import com.measure.community.auth.model.req.RoleUpdateReq;
@@ -256,7 +257,17 @@ class RoleServiceImplTest {
     }
 
     @Test
+    void assignRolesRejectsWhenUserNotFound() {
+        when(userMapper.selectById(999L)).thenReturn(null);
+        BizException ex = assertThrows(BizException.class,
+                () -> svc.assignRoles(999L, java.util.List.of(1L)));
+        assertEquals(SystemStatus.NOT_FOUND, ex.getErrorCode());
+        verify(userMapper, never()).deleteUserRoles(any());
+    }
+
+    @Test
     void assignRolesRejectsWhenSomeRoleIdMissing() {
+        when(userMapper.selectById(10L)).thenReturn(new SysUser());
         SysRole r1 = new SysRole();
         r1.setId(1L);
         when(roleMapper.selectByIds(java.util.List.of(1L, 2L))).thenReturn(java.util.List.of(r1));
@@ -268,6 +279,7 @@ class RoleServiceImplTest {
 
     @Test
     void assignRolesReplacesSet() {
+        when(userMapper.selectById(10L)).thenReturn(new SysUser());
         SysRole r1 = new SysRole();
         r1.setId(1L);
         SysRole r2 = new SysRole();
@@ -283,6 +295,7 @@ class RoleServiceImplTest {
 
     @Test
     void assignRolesWithEmptyListOnlyClears() {
+        when(userMapper.selectById(10L)).thenReturn(new SysUser());
         svc.assignRoles(10L, java.util.List.of());
 
         verify(userMapper).deleteUserRoles(10L);
