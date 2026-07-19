@@ -20,6 +20,8 @@ public class PopulationDataPermissionHandler implements DataPermissionHandler {
             return where; // 无上下文=系统调用
         }
         DataScope scope = DataScope.fromCode(UserContextHolder.getDataScope());
+        // 注入的是裸列名 grid_id / create_by，依赖 PopulationMapper 是单表 BaseMapper（无 join/子查询）。
+        // 若将来该 mapper 增加联表或白名单扩展到多表，需给这些列加表限定名以免歧义。
         String cond;
         switch (scope) {
             case ALL -> { return where; }

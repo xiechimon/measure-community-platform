@@ -70,6 +70,9 @@ public class PopulationServiceImpl extends ServiceImpl<PopulationMapper, Populat
             throw new BizException(SystemStatus.BAD_REQUEST, "证件号不能为空");
         }
         String hmac = HmacUtil.blindIndex(req.getIdCard());
+        // 注意：数据范围拦截器会给此 count 注入 grid_id 条件（GRID 用户只在本网格查重），
+        // 跨网格同证件号不会被此预检拦住 → 由全局 uk_id_card_hmac 唯一约束兜底（
+        // GlobalExceptionHandler 映射 DuplicateKey→409）。真正的跨网格去重保证在 DB 约束。
         long exists = this.count(new LambdaQueryWrapper<Population>()
                 .eq(Population::getIdCardHmac, hmac));
         if (exists > 0) {
