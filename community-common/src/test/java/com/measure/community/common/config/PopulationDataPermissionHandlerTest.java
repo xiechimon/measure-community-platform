@@ -51,4 +51,21 @@ class PopulationDataPermissionHandlerTest {
     void noContextInjectsNothing() {
         assertNull(h.getSqlSegment(null, POP));
     }
+
+    @Test
+    void communityScopeExpandsToDescendantGrids() {
+        Map<String,String> m = new HashMap<>();
+        m.put("id","9"); m.put("dataScope","COMMUNITY"); m.put("orgPath","/1/5/10/");
+        UserContextHolder.set(m);
+        Expression e = h.getSqlSegment(null, POP);
+        assertEquals("grid_id IN (SELECT id FROM sys_org WHERE type = 'GRID' AND path LIKE '/1/5/10/%')",
+                e.toString());
+    }
+    @Test
+    void hierarchicalWithNullOrgPathIsImpossible() {
+        Map<String,String> m = new HashMap<>();
+        m.put("id","9"); m.put("dataScope","STREET"); // 无 orgPath
+        UserContextHolder.set(m);
+        assertEquals("1 = 0", h.getSqlSegment(null, POP).toString());
+    }
 }

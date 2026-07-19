@@ -29,9 +29,16 @@ public class PopulationDataPermissionHandler implements DataPermissionHandler {
                 Long grid = UserContextHolder.getGridId();
                 cond = grid != null ? "grid_id = " + grid : "1 = 0";
             }
-            default -> { // SELF
+            case SELF -> {
                 String uid = UserContextHolder.getUserId();
                 cond = "create_by = '" + (uid == null ? "" : uid.replace("'", "''")) + "'";
+            }
+            default -> { // 层级档 DISTRICT/STREET/COMMUNITY：按用户节点 orgPath 展开为其下所有 GRID
+                String path = UserContextHolder.getOrgPath();
+                cond = (path != null && !path.isBlank())
+                        ? "grid_id IN (SELECT id FROM sys_org WHERE type = 'GRID' AND path LIKE '"
+                            + path.replace("'", "''") + "%')"
+                        : "1 = 0";
             }
         }
         try {
