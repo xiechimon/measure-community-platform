@@ -28,4 +28,16 @@ class UserContextHolderScopeTest {
         assertNull(UserContextHolder.getGridId());
         assertEquals("SELF", UserContextHolder.getDataScope());
     }
+    @Test
+    void exposesOrgPath() {
+        UserContextHolder.set(java.util.Map.of("id","7","orgPath","/1/5/10/"));
+        assertEquals("/1/5/10/", UserContextHolder.getOrgPath());
+    }
+    @Test
+    void missingOrgPathIsNull() {
+        UserContextHolder.set(java.util.Map.of("id","7"));
+        assertNull(UserContextHolder.getOrgPath());
+        UserContextHolder.clear();
+        assertNull(UserContextHolder.getOrgPath());
+    }
 }

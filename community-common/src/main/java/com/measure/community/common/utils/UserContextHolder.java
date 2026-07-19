@@ -50,6 +50,13 @@ public class UserContextHolder {
         return (s == null || s.isBlank()) ? "SELF" : s;
     }
 
+    /** 用户所在组织节点的物化路径（sys_org.path），缺失返回 null。 */
+    public static String getOrgPath() {
+        Map<String, String> u = context.get();
+        String v = u != null ? u.get("orgPath") : null;
+        return (v == null || v.isBlank()) ? null : v;
+    }
+
     private static Long parseLong(String key) {
         Map<String, String> u = context.get();
         String v = u != null ? u.get(key) : null;
