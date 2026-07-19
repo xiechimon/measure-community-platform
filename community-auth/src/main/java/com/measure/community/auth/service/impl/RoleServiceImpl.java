@@ -10,6 +10,8 @@ import com.measure.community.auth.model.entity.SysRole;
 import com.measure.community.auth.model.req.RoleCreateReq;
 import com.measure.community.auth.model.req.RoleQueryReq;
 import com.measure.community.auth.model.req.RoleUpdateReq;
+import com.measure.community.auth.model.entity.SysPermission;
+import com.measure.community.auth.model.vo.PermissionDto;
 import com.measure.community.auth.model.vo.RoleDto;
 import com.measure.community.auth.model.vo.RolePageDto;
 import com.measure.community.auth.service.RoleService;
@@ -144,6 +146,11 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         return dto;
     }
 
+    @Override
+    public List<PermissionDto> listPermissions() {
+        return sysPermissionMapper.selectList(null).stream().map(this::toPermissionDto).toList();
+    }
+
     /** dataScope 合法性:六档(ALL/DISTRICT/STREET/COMMUNITY/GRID/SELF)通过,CUSTOM/null/非法值一律拒绝。 */
     private boolean validScope(String dataScope) {
         if (dataScope == null) {
@@ -167,6 +174,15 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         d.setUpdateTime(r.getUpdateTime());
         d.setCreateBy(r.getCreateBy());
         d.setUpdateBy(r.getUpdateBy());
+        return d;
+    }
+
+    private PermissionDto toPermissionDto(SysPermission p) {
+        PermissionDto d = new PermissionDto();
+        d.setId(p.getId());
+        d.setCode(p.getCode());
+        d.setName(p.getName());
+        d.setType(p.getType());
         return d;
     }
 }

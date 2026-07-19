@@ -5,6 +5,7 @@ import com.measure.community.auth.model.entity.SysRole;
 import com.measure.community.auth.model.req.RoleCreateReq;
 import com.measure.community.auth.model.req.RoleQueryReq;
 import com.measure.community.auth.model.req.RoleUpdateReq;
+import com.measure.community.auth.model.vo.PermissionDto;
 import com.measure.community.auth.model.vo.RolePageDto;
 
 import java.util.List;
@@ -31,4 +32,7 @@ public interface RoleService extends IService<SysRole> {
 
     /** 整集设置用户拥有的角色(先清空再按新集合插入,空集合即清空)。 */
     void assignRoles(Long userId, List<Long> roleIds);
+
+    /** 查询全部权限点,供角色授权页勾选。 */
+    List<PermissionDto> listPermissions();
 }
