@@ -33,12 +33,17 @@ public class PopulationDataPermissionHandler implements DataPermissionHandler {
                 String uid = UserContextHolder.getUserId();
                 cond = "create_by = '" + (uid == null ? "" : uid.replace("'", "''")) + "'";
             }
-            default -> { // 层级档 DISTRICT/STREET/COMMUNITY：按用户节点 orgPath 展开为其下所有 GRID
+            case DISTRICT, STREET, COMMUNITY -> { // 层级档：按用户节点 orgPath 展开为其下所有 GRID
                 String path = UserContextHolder.getOrgPath();
+                // orgPath 为系统生成的 sys_org.path（仅数字与 '/'，不含 %/_ LIKE 通配符），故只转义单引号、
+                // 无需 ESCAPE 子句；若将来 path 允许字母/自定义键，须补 LIKE 通配符转义以防注入。
                 cond = (path != null && !path.isBlank())
                         ? "grid_id IN (SELECT id FROM sys_org WHERE type = 'GRID' AND path LIKE '"
                             + path.replace("'", "''") + "%')"
                         : "1 = 0";
+            }
+            default -> { // 未来新增的非层级档一律 fail-closed（不因落到 default 而误得层级展开）
+                cond = "1 = 0";
             }
         }
         try {
