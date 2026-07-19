@@ -36,4 +36,7 @@ public class LoginUser implements Serializable {
 
     /** 多角色取最宽档后的数据范围:ALL/GRID/SELF */
     private String dataScope;
+
+    /** 归属组织节点的物化路径(sys_org.path,如 /1/5/10/),供拦截器展开层级数据范围,无归属组织时为 null */
+    private String orgPath;
 }

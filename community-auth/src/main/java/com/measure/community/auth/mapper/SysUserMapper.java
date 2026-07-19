@@ -35,4 +35,8 @@ public interface SysUserMapper extends BaseMapper<SysUser> {
             WHERE ur.user_id = #{userId}
             """)
     List<String> selectRoleDataScopes(@Param("userId") Long userId);
+
+    /** 查组织节点的物化路径(如 /1/5/10/),供登录写入 orgPath 展开层级数据范围 */
+    @Select("SELECT path FROM sys_org WHERE id = #{orgId}")
+    String selectOrgPath(@Param("orgId") Long orgId);
 }

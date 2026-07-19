@@ -71,6 +71,7 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impleme
 		lu.setGridId(u.getGridId());
 		lu.setDataScope(com.measure.community.common.enums.DataScope
 				.resolve(baseMapper.selectRoleDataScopes(u.getId())).name());
+		lu.setOrgPath(u.getOrgId() != null ? baseMapper.selectOrgPath(u.getOrgId()) : null);
 		return lu;
 	}
 }

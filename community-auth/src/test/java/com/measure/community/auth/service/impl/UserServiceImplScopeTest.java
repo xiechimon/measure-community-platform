@@ -28,4 +28,22 @@ class UserServiceImplScopeTest {
         assertEquals(1001L, lu.getGridId());
         assertEquals("GRID", lu.getDataScope());
     }
+
+    @Test
+    void loginUserCarriesOrgPath() {
+        SysUserMapper mapper = mock(SysUserMapper.class);
+        SysUser u = new SysUser();
+        u.setId(9L); u.setUsername("commX"); u.setName("社区X"); u.setOrgId(10L);
+        when(mapper.selectRoleDataScopes(9L)).thenReturn(List.of("COMMUNITY"));
+        when(mapper.selectRoleCodes(9L)).thenReturn(List.of("communityOfficer"));
+        when(mapper.selectPermissionCodes(9L)).thenReturn(List.of("population:query"));
+        when(mapper.selectOrgPath(10L)).thenReturn("/1/5/10/");
+        UserServiceImpl svc = new UserServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(svc, "baseMapper", mapper);
+
+        var lu = svc.buildLoginUser(u);
+
+        assertEquals("/1/5/10/", lu.getOrgPath());
+        assertEquals("COMMUNITY", lu.getDataScope());
+    }
 }
