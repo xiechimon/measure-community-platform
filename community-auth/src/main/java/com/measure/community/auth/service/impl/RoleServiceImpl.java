@@ -3,7 +3,9 @@ package com.measure.community.auth.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.measure.community.auth.mapper.SysPermissionMapper;
 import com.measure.community.auth.mapper.SysRoleMapper;
+import com.measure.community.auth.mapper.SysUserMapper;
 import com.measure.community.auth.model.entity.SysRole;
 import com.measure.community.auth.model.req.RoleCreateReq;
 import com.measure.community.auth.model.req.RoleQueryReq;
@@ -14,18 +16,28 @@ import com.measure.community.auth.service.RoleService;
 import com.measure.community.common.enums.DataScope;
 import com.measure.community.common.enums.SystemStatus;
 import com.measure.community.common.exception.BizException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+
 /**
- * 角色增删改查(P2a §6)。绑定用户的删除前检查见 Task 2(注入 SysUserMapper 后补齐)。
+ * 角色增删改查(P2a §6),以及角色-权限/用户-角色的整集设置(Task 2)。
  */
 @Service
 public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> implements RoleService {
 
     /** 超级管理员角色标识,禁止删除 */
     private static final String ADMIN_CODE = "admin";
+
+    @Autowired
+    private SysUserMapper sysUserMapper;
+
+    @Autowired
+    private SysPermissionMapper sysPermissionMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -71,8 +83,44 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         if (ADMIN_CODE.equals(role.getCode())) {
             throw new BizException(SystemStatus.CONFLICT, "超级管理员角色不可删除");
         }
-        // 被用户绑定的删除前检查见 Task 2(需注入 SysUserMapper)
+        if (sysUserMapper.countUsersByRole(id) > 0) {
+            throw new BizException(SystemStatus.CONFLICT, "角色已被用户绑定,不可删除");
+        }
         this.removeById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void assignPermissions(Long roleId, List<Long> permissionIds) {
+        SysRole role = this.getById(roleId);
+        if (role == null) {
+            throw new BizException(SystemStatus.NOT_FOUND, "角色不存在");
+        }
+        if (!CollectionUtils.isEmpty(permissionIds)
+                && sysPermissionMapper.selectByIds(permissionIds).size() != permissionIds.size()) {
+            throw new BizException(SystemStatus.BAD_REQUEST, "权限点不存在");
+        }
+        this.baseMapper.deleteRolePermissions(roleId);
+        if (!CollectionUtils.isEmpty(permissionIds)) {
+            for (Long permId : permissionIds) {
+                this.baseMapper.insertRolePermission(roleId, permId);
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void assignRoles(Long userId, List<Long> roleIds) {
+        if (!CollectionUtils.isEmpty(roleIds)
+                && this.baseMapper.selectByIds(roleIds).size() != roleIds.size()) {
+            throw new BizException(SystemStatus.BAD_REQUEST, "角色不存在");
+        }
+        sysUserMapper.deleteUserRoles(userId);
+        if (!CollectionUtils.isEmpty(roleIds)) {
+            for (Long roleId : roleIds) {
+                sysUserMapper.insertUserRole(userId, roleId);
+            }
+        }
     }
 
     @Override

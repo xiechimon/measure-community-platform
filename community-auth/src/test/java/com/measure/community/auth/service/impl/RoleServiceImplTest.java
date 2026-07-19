@@ -1,6 +1,9 @@
 package com.measure.community.auth.service.impl;
 
+import com.measure.community.auth.mapper.SysPermissionMapper;
 import com.measure.community.auth.mapper.SysRoleMapper;
+import com.measure.community.auth.mapper.SysUserMapper;
+import com.measure.community.auth.model.entity.SysPermission;
 import com.measure.community.auth.model.entity.SysRole;
 import com.measure.community.auth.model.req.RoleCreateReq;
 import com.measure.community.auth.model.req.RoleQueryReq;
@@ -16,18 +19,26 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RoleServiceImplTest {
 
     private SysRoleMapper roleMapper;
+    private SysUserMapper userMapper;
+    private SysPermissionMapper permissionMapper;
     private RoleServiceImpl svc;
 
     @BeforeEach
     void setUp() {
         roleMapper = mock(SysRoleMapper.class);
+        userMapper = mock(SysUserMapper.class);
+        permissionMapper = mock(SysPermissionMapper.class);
         svc = new RoleServiceImpl();
         ReflectionTestUtils.setField(svc, "baseMapper", roleMapper);
+        ReflectionTestUtils.setField(svc, "sysUserMapper", userMapper);
+        ReflectionTestUtils.setField(svc, "sysPermissionMapper", permissionMapper);
     }
 
     @Test
@@ -185,5 +196,119 @@ class RoleServiceImplTest {
         assertEquals(1L, dto.getTotal());
         assertEquals(1, dto.getRecords().size());
         assertEquals("grid_worker", dto.getRecords().get(0).getCode());
+    }
+
+    @Test
+    void assignPermissionsRejectsWhenRoleNotFound() {
+        when(roleMapper.selectById(2L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class,
+                () -> svc.assignPermissions(2L, java.util.List.of(1L, 2L)));
+        assertEquals(SystemStatus.NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    void assignPermissionsRejectsWhenSomePermissionIdMissing() {
+        SysRole r = new SysRole();
+        r.setId(2L);
+        r.setCode("x");
+        when(roleMapper.selectById(2L)).thenReturn(r);
+        SysPermission p1 = new SysPermission();
+        p1.setId(1L);
+        when(permissionMapper.selectByIds(java.util.List.of(1L, 2L))).thenReturn(java.util.List.of(p1));
+
+        BizException ex = assertThrows(BizException.class,
+                () -> svc.assignPermissions(2L, java.util.List.of(1L, 2L)));
+        assertEquals(SystemStatus.BAD_REQUEST, ex.getErrorCode());
+    }
+
+    @Test
+    void assignPermissionsReplacesSet() {
+        SysRole r = new SysRole();
+        r.setId(2L);
+        r.setCode("x");
+        when(roleMapper.selectById(2L)).thenReturn(r);
+        SysPermission p1 = new SysPermission();
+        p1.setId(1L);
+        SysPermission p2 = new SysPermission();
+        p2.setId(2L);
+        when(permissionMapper.selectByIds(java.util.List.of(1L, 2L))).thenReturn(java.util.List.of(p1, p2));
+
+        svc.assignPermissions(2L, java.util.List.of(1L, 2L));
+
+        verify(roleMapper).deleteRolePermissions(2L);
+        verify(roleMapper).insertRolePermission(2L, 1L);
+        verify(roleMapper).insertRolePermission(2L, 2L);
+    }
+
+    @Test
+    void assignPermissionsWithEmptyListOnlyClears() {
+        SysRole r = new SysRole();
+        r.setId(2L);
+        r.setCode("x");
+        when(roleMapper.selectById(2L)).thenReturn(r);
+
+        svc.assignPermissions(2L, java.util.List.of());
+
+        verify(roleMapper).deleteRolePermissions(2L);
+        verify(roleMapper, never()).insertRolePermission(any(), any());
+    }
+
+    @Test
+    void assignRolesRejectsWhenSomeRoleIdMissing() {
+        SysRole r1 = new SysRole();
+        r1.setId(1L);
+        when(roleMapper.selectByIds(java.util.List.of(1L, 2L))).thenReturn(java.util.List.of(r1));
+
+        BizException ex = assertThrows(BizException.class,
+                () -> svc.assignRoles(10L, java.util.List.of(1L, 2L)));
+        assertEquals(SystemStatus.BAD_REQUEST, ex.getErrorCode());
+    }
+
+    @Test
+    void assignRolesReplacesSet() {
+        SysRole r1 = new SysRole();
+        r1.setId(1L);
+        SysRole r2 = new SysRole();
+        r2.setId(2L);
+        when(roleMapper.selectByIds(java.util.List.of(1L, 2L))).thenReturn(java.util.List.of(r1, r2));
+
+        svc.assignRoles(10L, java.util.List.of(1L, 2L));
+
+        verify(userMapper).deleteUserRoles(10L);
+        verify(userMapper).insertUserRole(10L, 1L);
+        verify(userMapper).insertUserRole(10L, 2L);
+    }
+
+    @Test
+    void assignRolesWithEmptyListOnlyClears() {
+        svc.assignRoles(10L, java.util.List.of());
+
+        verify(userMapper).deleteUserRoles(10L);
+        verify(userMapper, never()).insertUserRole(any(), any());
+    }
+
+    @Test
+    void deleteRejectsBoundRole() {
+        SysRole r = new SysRole();
+        r.setId(2L);
+        r.setCode("x");
+        when(roleMapper.selectById(2L)).thenReturn(r);
+        when(userMapper.countUsersByRole(2L)).thenReturn(3L);
+
+        BizException ex = assertThrows(BizException.class, () -> svc.deleteRole(2L));
+        assertEquals(SystemStatus.CONFLICT, ex.getErrorCode());
+    }
+
+    @Test
+    void deleteAllowsUnboundRole() {
+        SysRole role = new SysRole();
+        role.setId(2L);
+        role.setCode("grid_worker");
+        when(roleMapper.selectById(2L)).thenReturn(role);
+        when(userMapper.countUsersByRole(2L)).thenReturn(0L);
+        when(roleMapper.deleteById(eq(2L))).thenReturn(1);
+
+        assertDoesNotThrow(() -> svc.deleteRole(2L));
     }
 }

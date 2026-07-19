@@ -2,6 +2,8 @@ package com.measure.community.auth.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.measure.community.auth.model.entity.SysUser;
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -10,6 +12,18 @@ import java.util.List;
 
 @Mapper
 public interface SysUserMapper extends BaseMapper<SysUser> {
+
+    /** 清空用户已绑定的全部角色(整集替换前置操作) */
+    @Delete("DELETE FROM sys_user_role WHERE user_id = #{userId}")
+    void deleteUserRoles(@Param("userId") Long userId);
+
+    /** 绑定单条用户-角色关系 */
+    @Insert("INSERT INTO sys_user_role(user_id, role_id) VALUES(#{userId}, #{roleId})")
+    void insertUserRole(@Param("userId") Long userId, @Param("roleId") Long roleId);
+
+    /** 统计绑定了该角色的用户数,删除角色前校验用 */
+    @Select("SELECT COUNT(*) FROM sys_user_role WHERE role_id = #{roleId}")
+    long countUsersByRole(@Param("roleId") Long roleId);
 
     /** 查用户拥有的角色码 */
     @Select("""
