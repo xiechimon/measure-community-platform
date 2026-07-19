@@ -343,6 +343,50 @@ GRIDA_SEES_OWN_COUNT="$(jq -er --argjson id "$POPULATION_ID_GRIDA" '[.data.recor
 GRIDA_SEES_GRIDC_COUNT="$(jq -er --argjson id "$POPULATION_ID_GRIDC" '[.data.records[] | select(.id == $id)] | length' "$query_grida_community_body")"
 [[ "$GRIDA_SEES_GRIDC_COUNT" == "0" ]] || fail "gridA's GRID scope leaked gridC's record from the same community but a different grid (1003)" "$query_grida_community_body"
 
+echo "7m/10 admin creates a role (smokeRole, GRID data scope)"
+create_role_body="$TMP_DIR/create-role.json"
+create_role_payload='{"code":"smokeRole","name":"冒烟角色","dataScope":"GRID"}'
+request POST "$GATEWAY_URL/api/v1/auth/roles" "$create_role_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" --data "$create_role_payload"
+assert_success "$create_role_body"
+ROLE_ID="$(jq -er '.data | numbers' "$create_role_body")"
+
+echo "7n/10 duplicate role code is rejected"
+dup_role_body="$TMP_DIR/create-role-dup.json"
+request POST "$GATEWAY_URL/api/v1/auth/roles" "$dup_role_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" --data "$create_role_payload"
+assert_status 409 "$dup_role_body"
+
+echo "7o/10 invalid dataScope is rejected"
+bad_scope_body="$TMP_DIR/create-role-badscope.json"
+request POST "$GATEWAY_URL/api/v1/auth/roles" "$bad_scope_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" --data '{"code":"badScope","name":"x","dataScope":"CUSTOM"}'
+assert_status 400 "$bad_scope_body"
+
+echo "7p/10 admin lists permissions and finds population:query"
+permissions_body="$TMP_DIR/permissions.json"
+request GET "$GATEWAY_URL/api/v1/auth/permissions" "$permissions_body" -H "Authorization: Bearer $TOKEN"
+assert_success "$permissions_body"
+PERM_ID="$(jq -er '.data[] | select(.code == "population:query") | .id' "$permissions_body")"
+
+echo "7q/10 admin assigns population:query permission to the new role"
+assign_perm_body="$TMP_DIR/assign-role-permissions.json"
+assign_perm_payload="$(jq -cn --argjson permId "$PERM_ID" '{permissionIds: [$permId]}')"
+request PUT "$GATEWAY_URL/api/v1/auth/roles/$ROLE_ID/permissions" "$assign_perm_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" --data "$assign_perm_payload"
+assert_success "$assign_perm_body"
+
+echo "7r/10 gridA (lacks system:role:create) cannot create a role"
+grida_role_body="$TMP_DIR/create-role-gridA.json"
+request POST "$GATEWAY_URL/api/v1/auth/roles" "$grida_role_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN_GRIDA" --data '{"code":"x2","name":"x","dataScope":"GRID"}'
+assert_status 403 "$grida_role_body"
+
+echo "7s/10 admin deletes the smoke role (not bound to any user)"
+delete_role_body="$TMP_DIR/delete-role.json"
+request DELETE "$GATEWAY_URL/api/v1/auth/roles/$ROLE_ID" "$delete_role_body" -H "Authorization: Bearer $TOKEN"
+assert_success "$delete_role_body"
+
 echo "8/10 direct info access without internal header is forbidden"
 direct_body="$TMP_DIR/direct-info.json"
 request GET "$INFO_URL/api/v1/population/persons" "$direct_body"
