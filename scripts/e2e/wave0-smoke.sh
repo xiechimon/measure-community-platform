@@ -282,6 +282,67 @@ assert_success "$query_grida_isolation_body"
 GRIDA_SEES_ADMIN_ROW_COUNT="$(jq -er --argjson id "$POPULATION_ID" '[.data.records[] | select(.id == $id)] | length' "$query_grida_isolation_body")"
 [[ "$GRIDA_SEES_ADMIN_ROW_COUNT" == "0" ]] || fail "gridA's GRID scope leaked admin's NULL-grid record" "$query_grida_isolation_body"
 
+echo "7f/10 gridC login returns token (GRID data scope, grid 1003)"
+gridc_login_body="$TMP_DIR/login-gridC.json"
+request POST "$GATEWAY_URL/api/v1/auth/login" "$gridc_login_body" -H 'Content-Type: application/json' \
+  --data '{"account":"gridC","password":"123456"}'
+assert_success "$gridc_login_body"
+TOKEN_GRIDC="$(jq -er '.data.token | select(type == "string" and length > 20)' "$gridc_login_body")"
+
+ID_CARD_GRIDC="9$(date +%s)$(printf '%05d' "$RANDOM")"
+echo "7g/10 gridC creates a population record (grid_id defaults from her own context, grid 1003)"
+create_gridc_body="$TMP_DIR/create-population-gridC.json"
+create_gridc_payload="$(jq -cn --arg idCard "$ID_CARD_GRIDC" '{type:"常住",name:"Wave0网格C",idCard:$idCard,gender:"女",phone:"13800138002"}')"
+request POST "$GATEWAY_URL/api/v1/population/persons" "$create_gridc_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN_GRIDC" --data "$create_gridc_payload"
+assert_success "$create_gridc_body"
+POPULATION_ID_GRIDC="$(jq -er '.data | numbers' "$create_gridc_body")"
+
+echo "7h/10 gridB login returns token (GRID data scope, grid 1002)"
+gridb_login_body="$TMP_DIR/login-gridB.json"
+request POST "$GATEWAY_URL/api/v1/auth/login" "$gridb_login_body" -H 'Content-Type: application/json' \
+  --data '{"account":"gridB","password":"123456"}'
+assert_success "$gridb_login_body"
+TOKEN_GRIDB="$(jq -er '.data.token | select(type == "string" and length > 20)' "$gridb_login_body")"
+
+ID_CARD_GRIDB="9$(date +%s)$(printf '%05d' "$RANDOM")"
+echo "7i/10 gridB creates a population record (grid_id defaults from her own context, grid 1002)"
+create_gridb_body="$TMP_DIR/create-population-gridB.json"
+create_gridb_payload="$(jq -cn --arg idCard "$ID_CARD_GRIDB" '{type:"常住",name:"Wave0网格B",idCard:$idCard,gender:"男",phone:"13800138003"}')"
+request POST "$GATEWAY_URL/api/v1/population/persons" "$create_gridb_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN_GRIDB" --data "$create_gridb_payload"
+assert_success "$create_gridb_body"
+POPULATION_ID_GRIDB="$(jq -er '.data | numbers' "$create_gridb_body")"
+
+echo "7j/10 commX login returns token (COMMUNITY data scope, community 10: grids 1001+1003)"
+commx_login_body="$TMP_DIR/login-commX.json"
+request POST "$GATEWAY_URL/api/v1/auth/login" "$commx_login_body" -H 'Content-Type: application/json' \
+  --data '{"account":"commX","password":"123456"}'
+assert_success "$commx_login_body"
+TOKEN_COMMX="$(jq -er '.data.token | select(type == "string" and length > 20)' "$commx_login_body")"
+
+echo "7k/10 commX's COMMUNITY scope spans both her grids (1001+1003) but excludes the sibling community's grid (1002)"
+query_commx_body="$TMP_DIR/query-population-commX.json"
+request GET "$GATEWAY_URL/api/v1/population/persons?page=1&size=50" "$query_commx_body" -H "Authorization: Bearer $TOKEN_COMMX"
+assert_success "$query_commx_body"
+COMMX_SEES_GRIDA_COUNT="$(jq -er --argjson id "$POPULATION_ID_GRIDA" '[.data.records[] | select(.id == $id)] | length' "$query_commx_body")"
+[[ "$COMMX_SEES_GRIDA_COUNT" == "1" ]] || fail "commX's COMMUNITY scope should see gridA's record (grid 1001)" "$query_commx_body"
+COMMX_SEES_GRIDC_COUNT="$(jq -er --argjson id "$POPULATION_ID_GRIDC" '[.data.records[] | select(.id == $id)] | length' "$query_commx_body")"
+[[ "$COMMX_SEES_GRIDC_COUNT" == "1" ]] || fail "commX's COMMUNITY scope should see gridC's record (grid 1003, same community as grid 1001)" "$query_commx_body"
+COMMX_SEES_GRIDB_COUNT="$(jq -er --argjson id "$POPULATION_ID_GRIDB" '[.data.records[] | select(.id == $id)] | length' "$query_commx_body")"
+[[ "$COMMX_SEES_GRIDB_COUNT" == "0" ]] || fail "commX's COMMUNITY scope leaked gridB's record from the sibling community (grid 1002)" "$query_commx_body"
+COMMX_RETURNED_GRIDA_ID_CARD="$(jq -er --argjson id "$POPULATION_ID_GRIDA" '.data.records[] | select(.id == $id) | .idCard' "$query_commx_body")"
+[[ "$COMMX_RETURNED_GRIDA_ID_CARD" == *"*"* ]] || fail "commX lacks population:sensitive:view and should see a masked idCard" "$query_commx_body"
+
+echo "7l/10 gridA's GRID scope is narrower than COMMUNITY: sees her own grid but not gridC's (same community, different grid)"
+query_grida_community_body="$TMP_DIR/query-population-gridA-community.json"
+request GET "$GATEWAY_URL/api/v1/population/persons?page=1&size=50" "$query_grida_community_body" -H "Authorization: Bearer $TOKEN_GRIDA"
+assert_success "$query_grida_community_body"
+GRIDA_SEES_OWN_COUNT="$(jq -er --argjson id "$POPULATION_ID_GRIDA" '[.data.records[] | select(.id == $id)] | length' "$query_grida_community_body")"
+[[ "$GRIDA_SEES_OWN_COUNT" == "1" ]] || fail "gridA's GRID scope should still see her own record (grid 1001)" "$query_grida_community_body"
+GRIDA_SEES_GRIDC_COUNT="$(jq -er --argjson id "$POPULATION_ID_GRIDC" '[.data.records[] | select(.id == $id)] | length' "$query_grida_community_body")"
+[[ "$GRIDA_SEES_GRIDC_COUNT" == "0" ]] || fail "gridA's GRID scope leaked gridC's record from the same community but a different grid (1003)" "$query_grida_community_body"
+
 echo "8/10 direct info access without internal header is forbidden"
 direct_body="$TMP_DIR/direct-info.json"
 request GET "$INFO_URL/api/v1/population/persons" "$direct_body"
