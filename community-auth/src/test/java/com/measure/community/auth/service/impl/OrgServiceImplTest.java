@@ -72,4 +72,51 @@ class OrgServiceImplTest {
         svc.createOrg(r);
         verify(orgMapper).updateById(argThat((SysOrg o) -> "/1/5/10/1004/".equals(o.getPath())));
     }
+
+    @Test
+    void moveRejectsIntoOwnSubtree() {
+        SysOrg node = new SysOrg();
+        node.setId(5L);
+        node.setPath("/1/5/");
+        SysOrg newParent = new SysOrg();
+        newParent.setId(10L);
+        newParent.setPath("/1/5/10/"); // 10 是 5 的后代
+        when(orgMapper.selectById(5L)).thenReturn(node);
+        when(orgMapper.selectById(10L)).thenReturn(newParent);
+        assertEquals(SystemStatus.BAD_REQUEST, assertThrows(BizException.class, () -> svc.moveOrg(5L, 10L)).getErrorCode());
+    }
+
+    @Test
+    void moveRecomputesSubtreePaths() {
+        SysOrg node = new SysOrg();
+        node.setId(1002L);
+        node.setPath("/1/5/11/1002/");
+        SysOrg newParent = new SysOrg();
+        newParent.setId(10L);
+        newParent.setPath("/1/5/10/");
+        when(orgMapper.selectById(1002L)).thenReturn(node);
+        when(orgMapper.selectById(10L)).thenReturn(newParent);
+        svc.moveOrg(1002L, 10L);
+        verify(orgMapper).updateSubtreePath("/1/5/11/1002/", "/1/5/10/1002/");
+        verify(orgMapper).updateParent(1002L, 10L);
+    }
+
+    @Test
+    void deleteRejectsNodeWithChildren() {
+        SysOrg n = new SysOrg();
+        n.setId(10L);
+        when(orgMapper.selectById(10L)).thenReturn(n);
+        when(orgMapper.countChildren(10L)).thenReturn(2L);
+        assertEquals(SystemStatus.CONFLICT, assertThrows(BizException.class, () -> svc.deleteOrg(10L)).getErrorCode());
+    }
+
+    @Test
+    void deleteRejectsReferencedNode() {
+        SysOrg n = new SysOrg();
+        n.setId(1001L);
+        when(orgMapper.selectById(1001L)).thenReturn(n);
+        when(orgMapper.countChildren(1001L)).thenReturn(0L);
+        when(orgMapper.countUserOrgRefs(1001L)).thenReturn(1L);
+        assertEquals(SystemStatus.CONFLICT, assertThrows(BizException.class, () -> svc.deleteOrg(1001L)).getErrorCode());
+    }
 }

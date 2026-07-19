@@ -73,6 +73,47 @@ public class OrgServiceImpl extends ServiceImpl<SysOrgMapper, SysOrg> implements
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void moveOrg(Long id, Long newParentId) {
+        SysOrg node = this.getById(id);
+        if (node == null) {
+            throw new BizException(SystemStatus.NOT_FOUND, "组织节点不存在");
+        }
+        if (newParentId != null && newParentId.equals(id)) {
+            throw new BizException(SystemStatus.BAD_REQUEST, "不能移动到自身下");
+        }
+        SysOrg np = null;
+        if (newParentId != null) {
+            np = this.getById(newParentId);
+            if (np == null) {
+                throw new BizException(SystemStatus.BAD_REQUEST, "新父节点不存在");
+            }
+            if (np.getPath().startsWith(node.getPath())) {
+                throw new BizException(SystemStatus.BAD_REQUEST, "不能移动到自身子树下");
+            }
+        }
+        String newPath = (np == null ? "/" : np.getPath()) + id + "/";
+        this.baseMapper.updateSubtreePath(node.getPath(), newPath);
+        this.baseMapper.updateParent(id, newParentId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteOrg(Long id) {
+        SysOrg node = this.getById(id);
+        if (node == null) {
+            throw new BizException(SystemStatus.NOT_FOUND, "组织节点不存在");
+        }
+        if (this.baseMapper.countChildren(id) > 0) {
+            throw new BizException(SystemStatus.CONFLICT, "存在子节点");
+        }
+        if (this.baseMapper.countUserOrgRefs(id) > 0 || this.baseMapper.countPopulationRefs(id) > 0) {
+            throw new BizException(SystemStatus.CONFLICT, "节点被用户或人口引用");
+        }
+        this.removeById(id);
+    }
+
+    @Override
     public List<OrgDto> listOrgs() {
         return this.list(new LambdaQueryWrapper<SysOrg>().orderByAsc(SysOrg::getPath))
                 .stream().map(this::toDto).toList();
