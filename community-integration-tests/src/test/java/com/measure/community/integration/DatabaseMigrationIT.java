@@ -15,7 +15,7 @@ class DatabaseMigrationIT extends MySqlIntegrationSupport {
     void emptyDatabaseMigratesOnceAndAdminCanAuthenticate() throws Exception {
         flyway.clean();
 
-        assertEquals(5, flyway.migrate().migrationsExecuted);
+        assertEquals(6, flyway.migrate().migrationsExecuted);
 
         try (Connection connection = DriverManager.getConnection(
                 MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword())) {
@@ -30,6 +30,12 @@ class DatabaseMigrationIT extends MySqlIntegrationSupport {
                     "SELECT password FROM sys_user WHERE username='admin'");
             assertTrue(user.next());
             assertTrue(new BCryptPasswordEncoder().matches("123456", user.getString(1)));
+
+            // V6 组织管理权限种子(system:org:*)已落库
+            ResultSet orgPerms = connection.createStatement().executeQuery(
+                    "SELECT COUNT(*) FROM sys_permission WHERE code LIKE 'system:org:%'");
+            assertTrue(orgPerms.next());
+            assertEquals(5, orgPerms.getInt(1));
         }
 
         assertEquals(0, flyway.migrate().migrationsExecuted);
