@@ -2,21 +2,380 @@ openapi: 3.0.3
 info:
   title: 数智化社区服务平台 API
   version: v1
-  description: 六个业务模块的聚合 API 契约快照，供 Apifox 导入；所有外部请求经网关访问。
+  description: |
+    六个业务模块的聚合 API 契约快照，供 Apifox/Postman 导入；所有外部请求经网关(9090)访问。
+
+    ## 模块对接状态
+
+    | 模块 | 状态 | 说明 |
+    |------|------|------|
+    | 🟢 鉴权 (auth) | ✅ 可对接 | 登录、用户、角色(CRUD+权限分配)、组织树 全部就绪 |
+    | 🟢 人口信息 (info) | ✅ 可对接 | 人口档案分页查询、录入、版本更新、变更历史 全部就绪 |
+    | 🟡 首页门户 (portal) | ⏳ 占位 | 仅 `/api/v1/portal/ping` 健康探针，业务接口待开发 |
+    | 🟡 社区服务 (service) | ⏳ 占位 | 仅 `/api/v1/service/ping` 健康探针，业务接口待开发 |
+    | 🟡 社区公益 (welfare) | ⏳ 占位 | 仅 `/api/v1/welfare/ping` 健康探针，业务接口待开发 |
+    | 🟡 居务管理 (affairs) | ⏳ 占位 | 仅 `/api/v1/affairs/ping` 健康探针，业务接口待开发 |
+
+    ## 对接须知
+    - 网关地址: `http://localhost:9090`（生产按实际域名替换）
+    - 鉴权方式: Bearer JWT，先调 `/api/v1/auth/login` 获取 token，后续请求头带 `Authorization: Bearer <token>`
+    - 统一响应格式: `{ "code": 200, "message": "...", "data": ... }`
+    - 分页请求统一用 `page`(页码,从1开始) + `size`(页大小) 参数
+    - 分页响应统一含 `records`(当前页数据) + `total`(总条数) + `size` + `current` + `pages`
 servers:
   - url: http://localhost:9090
     description: 本地网关
 security:
   - bearerAuth: []
 tags:
+  - name: 鉴权
+    description: 登录认证 / 用户 / 角色与权限 / 组织树管理
   - name: 人口信息
     description: 户籍/常住/流动人口档案
-  - name: 鉴权
   - name: 首页门户
   - name: 社区服务
   - name: 社区公益
   - name: 居务管理
 paths:
+
+  # ==================== 鉴权模块 (community-auth) ====================
+
+  /api/v1/auth/login:
+    post:
+      tags: [鉴权]
+      summary: 登录
+      description: 免鉴权白名单，返回 JWT token
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account, password]
+              properties:
+                account: { type: string, example: admin, description: 登录账号 }
+                password: { type: string, example: "123456", description: 密码 }
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: integer, format: int64, description: 用户ID }
+                      account: { type: string, description: 账号 }
+                      name: { type: string, description: 用户名 }
+                      token: { type: string, description: JWT令牌 }
+        '401':
+          description: 账号或密码错误
+        '403':
+          description: 账号已停用
+
+  /api/v1/auth/getUserName:
+    get:
+      tags: [鉴权]
+      summary: 获取当前登录用户名
+      operationId: getUserName
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { type: string, description: 当前用户名 }
+
+  # ---- 角色管理 ----
+
+  /api/v1/auth/roles:
+    get:
+      tags: [鉴权]
+      summary: 角色分页查询
+      operationId: pageRoles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: code
+          in: query
+          schema: { type: string, description: 角色标识(模糊匹配) }
+        - name: name
+          in: query
+          schema: { type: string, description: 角色名称(模糊匹配) }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      records:
+                        type: array
+                        items: { $ref: '#/components/schemas/Role' }
+                      total: { type: integer, format: int64 }
+                      size: { type: integer, format: int64 }
+                      current: { type: integer, format: int64 }
+                      pages: { type: integer, format: int64 }
+    post:
+      tags: [鉴权]
+      summary: 创建角色
+      operationId: createRole
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleCreateReq' }
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/Role' }
+
+  /api/v1/auth/roles/{id}:
+    put:
+      tags: [鉴权]
+      summary: 更新角色(仅 name/dataScope)
+      operationId: updateRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleUpdateReq' }
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [鉴权]
+      summary: 删除角色
+      operationId: deleteRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 删除成功
+
+  /api/v1/auth/roles/{id}/permissions:
+    put:
+      tags: [鉴权]
+      summary: 整集设置角色权限(空列表表示清空)
+      operationId: assignPermissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                permissionIds:
+                  type: array
+                  items: { type: integer, format: int64 }
+                  description: 权限点 ID 列表(整集替换,空列表表示清空)
+      responses:
+        '200':
+          description: 设置成功
+
+  /api/v1/auth/permissions:
+    get:
+      tags: [鉴权]
+      summary: 权限点列表
+      operationId: listPermissions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Permission' }
+
+  /api/v1/auth/users/{userId}/roles:
+    put:
+      tags: [鉴权]
+      summary: 整集设置用户角色(空列表表示清空)
+      operationId: assignRoles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleIds:
+                  type: array
+                  items: { type: integer, format: int64 }
+                  description: 角色 ID 列表(整集替换,空列表表示清空)
+      responses:
+        '200':
+          description: 设置成功
+
+  # ---- 组织树管理 ----
+
+  /api/v1/auth/orgs:
+    get:
+      tags: [鉴权]
+      summary: 组织树列表
+      operationId: listOrgs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/OrgNode' }
+    post:
+      tags: [鉴权]
+      summary: 创建组织节点
+      operationId: createOrg
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrgCreateReq' }
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 200 }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/OrgNode' }
+
+  /api/v1/auth/orgs/{id}:
+    put:
+      tags: [鉴权]
+      summary: 更新组织节点(仅 name/type)
+      operationId: updateOrg
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrgUpdateReq' }
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [鉴权]
+      summary: 删除组织节点
+      operationId: deleteOrg
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 删除成功
+
+  /api/v1/auth/orgs/{id}/move:
+    put:
+      tags: [鉴权]
+      summary: 移动组织节点到新父节点
+      operationId: moveOrg
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrgMoveReq' }
+      responses:
+        '200':
+          description: 移动成功
+
+  # ==================== 人口信息模块 (community-info) ====================
+
   /api/v1/population/persons:
     get:
       tags: [人口信息]
@@ -85,6 +444,7 @@ paths:
           description: 未认证或 token 失效
         '403':
           description: 无权限访问
+
   /api/v1/population/persons/{id}/versions:
     post:
       tags: [人口信息]
@@ -155,48 +515,15 @@ paths:
           description: 未认证或 token 失效
         '403':
           description: 无权限访问
-  /api/v1/auth/login:
-    post:
-      tags: [鉴权]
-      summary: 登录(免鉴权白名单)
-      operationId: login
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [account, password]
-              properties:
-                account: { type: string, example: admin }
-                password: { type: string, example: "123456" }
-      responses:
-        '200':
-          description: 登录成功,data 含 token
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  code: { type: integer, example: 200 }
-                  message: { type: string }
-                  data:
-                    type: object
-                    properties:
-                      id: { type: integer, format: int64 }
-                      account: { type: string }
-                      name: { type: string }
-                      token: { type: string }
-        '401':
-          description: 账号或密码错误
-        '403':
-          description: 账号已停用
+
+  # ==================== 占位模块 (ping only) ====================
+
   /api/v1/portal/ping:
     get:
       tags: [首页门户]
       summary: 健康探针
       operationId: portalPing
+      security: []
       responses:
         '200':
           description: ok
@@ -208,11 +535,13 @@ paths:
                   code: { type: integer, example: 200 }
                   message: { type: string }
                   data: { type: string, example: community-portal ok }
+
   /api/v1/service/ping:
     get:
       tags: [社区服务]
       summary: 健康探针
       operationId: servicePing
+      security: []
       responses:
         '200':
           description: ok
@@ -224,11 +553,13 @@ paths:
                   code: { type: integer, example: 200 }
                   message: { type: string }
                   data: { type: string, example: community-service ok }
+
   /api/v1/welfare/ping:
     get:
       tags: [社区公益]
       summary: 健康探针
       operationId: welfarePing
+      security: []
       responses:
         '200':
           description: ok
@@ -240,11 +571,13 @@ paths:
                   code: { type: integer, example: 200 }
                   message: { type: string }
                   data: { type: string, example: community-welfare ok }
+
   /api/v1/affairs/ping:
     get:
       tags: [居务管理]
       summary: 健康探针
       operationId: affairsPing
+      security: []
       responses:
         '200':
           description: ok
@@ -256,13 +589,89 @@ paths:
                   code: { type: integer, example: 200 }
                   message: { type: string }
                   data: { type: string, example: community-affairs ok }
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
   schemas:
+
+    # ---- 鉴权模块 schemas ----
+
+    Role:
+      type: object
+      description: 角色
+      properties:
+        id: { type: integer, format: int64 }
+        code: { type: string, description: 角色标识,如 grid_worker }
+        name: { type: string, description: 角色名称,如 网格员 }
+        dataScope: { type: string, description: 数据范围 SELF/GRID/COMMUNITY/STREET/DISTRICT/ALL }
+        createTime: { type: string, format: date-time }
+        updateTime: { type: string, format: date-time }
+
+    RoleCreateReq:
+      type: object
+      required: [code, name, dataScope]
+      properties:
+        code: { type: string, description: 角色标识,唯一,如 grid_worker, example: grid_worker }
+        name: { type: string, description: 角色名称, example: 网格员 }
+        dataScope: { type: string, enum: [SELF, GRID, COMMUNITY, STREET, DISTRICT, ALL], description: 数据范围, example: GRID }
+
+    RoleUpdateReq:
+      type: object
+      description: 更新角色(不改角色标识 code)
+      properties:
+        name: { type: string, description: 角色名称, example: 网格员 }
+        dataScope: { type: string, enum: [SELF, GRID, COMMUNITY, STREET, DISTRICT, ALL], description: 数据范围, example: GRID }
+
+    Permission:
+      type: object
+      description: 权限点
+      properties:
+        id: { type: integer, format: int64 }
+        code: { type: string, description: 权限标识,如 system:role:query }
+        name: { type: string, description: 权限名称 }
+        category: { type: string, description: 分类 }
+
+    OrgNode:
+      type: object
+      description: 组织树节点
+      properties:
+        id: { type: integer, format: int64 }
+        parentId: { type: integer, format: int64, description: 父节点ID,根节点为null }
+        type: { type: string, description: 节点类型 DISTRICT/STREET/COMMUNITY/GRID }
+        name: { type: string, description: 节点名称 }
+        sort: { type: integer }
+        children:
+          type: array
+          items: { $ref: '#/components/schemas/OrgNode' }
+          description: 子节点(树形结构)
+        createTime: { type: string, format: date-time }
+        updateTime: { type: string, format: date-time }
+
+    OrgCreateReq:
+      type: object
+      properties:
+        parentId: { type: integer, format: int64, description: 父节点ID,根节点为空, example: 10 }
+        type: { type: string, enum: [DISTRICT, STREET, COMMUNITY, GRID], description: 节点类型, example: GRID }
+        name: { type: string, description: 节点名称, example: 网格1004 }
+
+    OrgUpdateReq:
+      type: object
+      properties:
+        name: { type: string, description: 节点名称, example: 网格1004 }
+        type: { type: string, enum: [DISTRICT, STREET, COMMUNITY, GRID], description: 节点类型, example: GRID }
+
+    OrgMoveReq:
+      type: object
+      properties:
+        newParentId: { type: integer, format: int64, description: 新父节点ID,移动为根节点时为空, example: 10 }
+
+    # ---- 人口信息模块 schemas ----
+
     Population:
       type: object
       description: 人口档案(证件号脱敏展示)
@@ -278,6 +687,7 @@ components:
         version: { type: integer }
         createTime: { type: string, format: date-time }
         updateTime: { type: string, format: date-time }
+
     PopulationCreateReq:
       type: object
       required: [type, name, idCard]
@@ -289,6 +699,7 @@ components:
         phone: { type: string }
         insuredStatus: { type: string }
         employmentStatus: { type: string }
+
     PopulationPage:
       type: object
       properties:
@@ -299,6 +710,7 @@ components:
         size: { type: integer, format: int64 }
         current: { type: integer, format: int64 }
         pages: { type: integer, format: int64 }
+
     PopulationVersionUpdateReq:
       type: object
       description: 可变更字段(证件号不可改)。仅传需变更的字段。
@@ -309,6 +721,7 @@ components:
         phone: { type: string }
         insuredStatus: { type: string }
         employmentStatus: { type: string }
+
     PopulationHis:
       type: object
       description: 人口变更历史项(快照证件号脱敏)
@@ -320,6 +733,7 @@ components:
         changedField: { type: string, description: "变更字段名列表(创建基线为 __create__)" }
         createTime: { type: string, format: date-time }
         createBy: { type: string }
+
     PopulationHisPage:
       type: object
       properties:
