@@ -387,6 +387,71 @@ delete_role_body="$TMP_DIR/delete-role.json"
 request DELETE "$GATEWAY_URL/api/v1/auth/roles/$ROLE_ID" "$delete_role_body" -H "Authorization: Bearer $TOKEN"
 assert_success "$delete_role_body"
 
+echo "7t/10 admin creates ORG_A under community 10 (GRID)"
+create_orga_body="$TMP_DIR/create-org-a.json"
+request POST "$GATEWAY_URL/api/v1/auth/orgs" "$create_orga_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" --data '{"parentId":10,"type":"GRID","name":"冒烟网格"}'
+assert_success "$create_orga_body"
+ORG_A="$(jq -er '.data | numbers' "$create_orga_body")"
+
+echo "7u/10 ORG_A's path is prefixed under community 10 (/1/5/10/)"
+list_org_a_body="$TMP_DIR/list-orgs-a.json"
+request GET "$GATEWAY_URL/api/v1/auth/orgs" "$list_org_a_body" -H "Authorization: Bearer $TOKEN"
+assert_success "$list_org_a_body"
+ORG_A_PATH="$(jq -er --argjson id "$ORG_A" '.data[] | select(.id == $id) | .path' "$list_org_a_body")"
+[[ "$ORG_A_PATH" == /1/5/10/* ]] || fail "ORG_A path is not under community 10" "$list_org_a_body"
+
+echo "7v/10 admin creates child ORG_B under ORG_A"
+create_orgb_body="$TMP_DIR/create-org-b.json"
+create_orgb_payload="$(jq -cn --argjson parentId "$ORG_A" '{parentId:$parentId,type:"GRID",name:"子"}')"
+request POST "$GATEWAY_URL/api/v1/auth/orgs" "$create_orgb_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" --data "$create_orgb_payload"
+assert_success "$create_orgb_body"
+ORG_B="$(jq -er '.data | numbers' "$create_orgb_body")"
+
+echo "7w/10 ORG_B's path is prefixed by ORG_A's path"
+list_org_b_body="$TMP_DIR/list-orgs-b.json"
+request GET "$GATEWAY_URL/api/v1/auth/orgs" "$list_org_b_body" -H "Authorization: Bearer $TOKEN"
+assert_success "$list_org_b_body"
+ORG_B_PATH="$(jq -er --argjson id "$ORG_B" '.data[] | select(.id == $id) | .path' "$list_org_b_body")"
+[[ "$ORG_B_PATH" == "$ORG_A_PATH"* ]] || fail "ORG_B path is not prefixed by ORG_A's path" "$list_org_b_body"
+
+echo "7x/10 admin moves ORG_A under community 11"
+move_orga_body="$TMP_DIR/move-org-a.json"
+request PUT "$GATEWAY_URL/api/v1/auth/orgs/$ORG_A/move" "$move_orga_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" --data '{"newParentId":11}'
+assert_success "$move_orga_body"
+
+echo "7y/10 ORG_A's path moved to /1/5/11/ and ORG_B's subtree path was recomputed"
+list_after_move_body="$TMP_DIR/list-orgs-after-move.json"
+request GET "$GATEWAY_URL/api/v1/auth/orgs" "$list_after_move_body" -H "Authorization: Bearer $TOKEN"
+assert_success "$list_after_move_body"
+NEW_ORG_A_PATH="$(jq -er --argjson id "$ORG_A" '.data[] | select(.id == $id) | .path' "$list_after_move_body")"
+[[ "$NEW_ORG_A_PATH" == /1/5/11/* ]] || fail "ORG_A path did not move under community 11" "$list_after_move_body"
+NEW_ORG_B_PATH="$(jq -er --argjson id "$ORG_B" '.data[] | select(.id == $id) | .path' "$list_after_move_body")"
+[[ "$NEW_ORG_B_PATH" == "$NEW_ORG_A_PATH"* ]] || fail "ORG_B path was not recomputed under ORG_A's new path" "$list_after_move_body"
+
+echo "7z/10 admin deletes ORG_B (leaf, no references)"
+delete_orgb_body="$TMP_DIR/delete-org-b.json"
+request DELETE "$GATEWAY_URL/api/v1/auth/orgs/$ORG_B" "$delete_orgb_body" -H "Authorization: Bearer $TOKEN"
+assert_success "$delete_orgb_body"
+
+echo "7aa/10 admin deletes ORG_A (now childless, no references)"
+delete_orga_body="$TMP_DIR/delete-org-a.json"
+request DELETE "$GATEWAY_URL/api/v1/auth/orgs/$ORG_A" "$delete_orga_body" -H "Authorization: Bearer $TOKEN"
+assert_success "$delete_orga_body"
+
+echo "7ab/10 admin cannot delete seed org 1001 (grid-bound to gridA's user record)"
+delete_org_seed_body="$TMP_DIR/delete-org-seed.json"
+request DELETE "$GATEWAY_URL/api/v1/auth/orgs/1001" "$delete_org_seed_body" -H "Authorization: Bearer $TOKEN"
+assert_status 409 "$delete_org_seed_body"
+
+echo "7ac/10 gridA (lacks system:org:create) cannot create an org"
+create_org_grida_body="$TMP_DIR/create-org-gridA.json"
+request POST "$GATEWAY_URL/api/v1/auth/orgs" "$create_org_grida_body" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN_GRIDA" --data '{"parentId":10,"type":"GRID","name":"x"}'
+assert_status 403 "$create_org_grida_body"
+
 echo "8/10 direct info access without internal header is forbidden"
 direct_body="$TMP_DIR/direct-info.json"
 request GET "$INFO_URL/api/v1/population/persons" "$direct_body"
