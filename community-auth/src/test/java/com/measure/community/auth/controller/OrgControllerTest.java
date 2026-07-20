@@ -76,14 +76,15 @@ class OrgControllerTest {
     }
 
     @Test
-    void createOrg_parentNotFound_returns409() throws Exception {
+    void createOrg_parentNotFound_returns400() throws Exception {
+        // 真实契约(见 OrgServiceImpl.createOrg / spec §3.2):父节点不存在为 BAD_REQUEST(400)
         when(orgService.createOrg(any()))
-                .thenThrow(new BizException(SystemStatus.CONFLICT, "父节点不存在"));
+                .thenThrow(new BizException(SystemStatus.BAD_REQUEST, "父节点不存在"));
         mockMvc.perform(post("/api/v1/auth/orgs")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"parentId\":999,\"type\":\"GRID\",\"name\":\"网格1004\"}"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(20004))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(20001))
                 .andExpect(jsonPath("$.message").value("父节点不存在"));
     }
 
